@@ -1,7 +1,7 @@
 [
  {
   "file": "wallpapers/wp_01.jpg",
-  "name": "Горное озеро",
+  "name": "Йосемити",
   "source": "https://unsplash.com/photos/photo-1506744038136-46273834b3fb"
  },
  {
@@ -11,7 +11,7 @@
  },
  {
   "file": "wallpapers/wp_03.jpg",
-  "name": "Туман в горах",
+  "name": "Туман над холмами",
   "source": "https://unsplash.com/photos/photo-1470071459604-3b5ec3a7fe05"
  },
  {
@@ -21,17 +21,17 @@
  },
  {
   "file": "wallpapers/wp_05.jpg",
-  "name": "Рассвет в горах",
+  "name": "Горная долина",
   "source": "https://unsplash.com/photos/photo-1469474968028-56623f02e42e"
  },
  {
   "file": "wallpapers/wp_06.jpg",
-  "name": "Зелёные холмы",
+  "name": "Зелёная долина",
   "source": "https://unsplash.com/photos/photo-1472214103451-9374bd1c798e"
  },
  {
   "file": "wallpapers/wp_07.jpg",
-  "name": "Лесная тропа",
+  "name": "Мост в лесу",
   "source": "https://unsplash.com/photos/photo-1447752875215-b2761acb3c5d"
  },
  {
@@ -46,7 +46,7 @@
  },
  {
   "file": "wallpapers/wp_10.jpg",
-  "name": "Вершина",
+  "name": "Горы и сосны",
   "source": "https://unsplash.com/photos/photo-1464822759023-fed622ff2c3b"
  },
  {
@@ -56,7 +56,7 @@
  },
  {
   "file": "wallpapers/wp_12.jpg",
-  "name": "Долина",
+  "name": "Эль-Капитан",
   "source": "https://unsplash.com/photos/photo-1426604966848-d7adac402bff"
  },
  {
@@ -66,7 +66,7 @@
  },
  {
   "file": "wallpapers/wp_14.jpg",
-  "name": "Закат над полем",
+  "name": "Закат у моря",
   "source": "https://unsplash.com/photos/photo-1475924156734-496f6cac6ec1"
  }
 ]
