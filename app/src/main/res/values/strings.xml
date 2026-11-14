@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Sky Launcher</string>
-    <string name="service_desc">Открывает Sky Launcher вместо стандартного главного экрана при включении ТВ и по кнопке Home.</string>
+    <string name="app_name">Sky OS</string>
+    <string name="service_desc">Открывает Sky OS вместо стандартного главного экрана при включении ТВ и по кнопке Home, а также позволяет выключать экран из Пункта управления.</string>
 </resources>

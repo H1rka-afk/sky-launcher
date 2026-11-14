@@ -6,17 +6,21 @@ import android.view.accessibility.AccessibilityEvent
 
 /**
  * Режим без ADB: когда на экране появляется стандартный лаунчер
- * (после включения ТВ или по кнопке Home), сразу открываем Sky Launcher.
+ * (после включения ТВ или по кнопке Home), сразу открываем Sky OS.
+ * Также используется для «Сна» в Пункте управления.
  */
 class HomeInterceptService : AccessibilityService() {
+
+    companion object { var instance: HomeInterceptService? = null }
 
     private var stockHomes: Set<String> = emptySet()
 
     override fun onServiceConnected() {
+        instance = this
         stockHomes = packageManager.queryIntentActivities(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0
         ).map { it.activityInfo.packageName }
-            .filter { it != packageName && it != "com.android.settings" }
+            .filter { it != packageName && it != "com.android.settings" && it != "com.android.tv.settings" }
             .toSet()
         openLauncher()
     }
@@ -36,4 +40,6 @@ class HomeInterceptService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    override fun onDestroy() { instance = null; super.onDestroy() }
 }

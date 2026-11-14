@@ -32,6 +32,20 @@ jobs:
         working-directory: ${{ env.DIR }}
         run: gradle assembleDebug --no-daemon
 
+      - name: Screenshots
+        continue-on-error: true
+        working-directory: ${{ env.DIR }}
+        run: gradle testDebugUnitTest --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: |
+            ${{ env.DIR }}/app/build/shots/
+            ${{ env.DIR }}/app/build/reports/tests/
+          if-no-files-found: ignore
+
       - name: Rename APK
         run: cp "${{ env.DIR }}/app/build/outputs/apk/debug/app-debug.apk" SkyLauncher.apk
 
@@ -39,6 +53,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: Sky Launcher
+          name: Sky OS
           files: SkyLauncher.apk
           make_latest: true
