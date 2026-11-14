@@ -56,3 +56,14 @@ jobs:
           name: Sky OS
           files: SkyLauncher.apk
           make_latest: true
+
+      # Скриншоты интерфейса — отдельным релизом (для проверки дизайна)
+      - uses: softprops/action-gh-release@v2
+        if: always()
+        continue-on-error: true
+        with:
+          tag_name: screenshots
+          name: Screenshots
+          prerelease: true
+          make_latest: false
+          files: ${{ env.DIR }}/app/build/shots/*.png
