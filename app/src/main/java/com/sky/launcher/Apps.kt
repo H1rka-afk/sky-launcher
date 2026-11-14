@@ -13,7 +13,6 @@ import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.widget.ImageView
 import android.widget.LinearLayout
-import androidx.recyclerview.widget.RecyclerView
 
 data class AppEntry(
     val pkg: String,
@@ -62,23 +61,6 @@ class AppRepository(ctx: Context) {
         return listOf(settingsEntry()) + result.sortedBy { it.label.lowercase() }
     }
 
-    var dock: List<String>
-        get() = prefs.getString("dock", null)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
-        set(v) = prefs.edit().putString("dock", v.joinToString(",")).apply()
-
-    fun dockApps(all: List<AppEntry>): List<AppEntry> {
-        val byPkg = all.associateBy { it.pkg }
-        val saved = prefs.getString("dock", null)
-        if (saved != null) return dock.mapNotNull { byPkg[it] }.take(7)
-        val d = DOCK_DEFAULTS.mapNotNull { byPkg[it] }.take(4).toMutableList()
-        for (a in all) {
-            if (d.size >= 4) break
-            if (a !in d && a.special == null) d += a
-        }
-        byPkg[SETTINGS]?.let { d += it }
-        return d
-    }
-
     var wallpaper: Int
         get() = prefs.getInt("wallpaper", 0)
         set(v) = prefs.edit().putInt("wallpaper", v).apply()
@@ -111,33 +93,9 @@ class AppTileView(ctx: Context, private val iconDp: Int = 72, showLabel: Boolean
         Ui.zoomOnFocus(this, 1.15f) { f -> label.typeface = if (f) Ui.medium else Ui.regular }
     }
 
-    fun bind(app: AppEntry) {
+    fun bind(app: AppEntry, name: String = app.label) {
         icon.setImageBitmap(IconFactory.get(context, app, context.dpi(iconDp)))
-        label.text = app.label
+        label.text = name
     }
 }
 
-class AppsAdapter(
-    private val onClick: (View, AppEntry) -> Unit,
-    private val onLong: (AppEntry) -> Unit
-) : RecyclerView.Adapter<AppsAdapter.VH>() {
-    var items: List<AppEntry> = emptyList()
-
-    class VH(val tile: AppTileView) : RecyclerView.ViewHolder(tile)
-
-    override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
-        val tile = AppTileView(p.context)
-        tile.layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            .apply { topMargin = p.context.dpi(6); bottomMargin = p.context.dpi(10) }
-        return VH(tile)
-    }
-
-    override fun onBindViewHolder(h: VH, pos: Int) {
-        val a = items[pos]
-        h.tile.bind(a)
-        h.tile.setOnClickListener { onClick(it, a) }
-        h.tile.setOnLongClickListener { onLong(a); true }
-    }
-
-    override fun getItemCount() = items.size
-}

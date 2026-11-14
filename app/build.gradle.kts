@@ -11,8 +11,8 @@ android {
         minSdk = 26
         // 28 — чтобы работали переключатели Wi‑Fi и Bluetooth в Пункте управления
         targetSdk = 28
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "3.0"
     }
     signingConfigs {
         create("skyos") {
@@ -35,7 +35,6 @@ android {
 }
 
 dependencies {
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")

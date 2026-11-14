@@ -9,6 +9,7 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Looper
+import android.view.KeyEvent
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Before
 import org.junit.Test
@@ -48,30 +49,62 @@ class ScreenshotTest {
             "ivi" to 0xFFEA003D, "Netflix" to 0xFF141414, "Spotify" to 0xFF1DB954, "VLC" to 0xFFFF8800,
             "Play Маркет" to 0xFF01875F, "Музыка" to 0xFFFC3C44, "Фото" to 0xFF3478F6, "Файлы" to 0xFF0A84FF,
             "Погода" to 0xFF2D9CDB, "Браузер" to 0xFF5E5CE6, "Twitch" to 0xFF9146FF, "Rutube" to 0xFF100943,
-            "ТВ" to 0xFF2C2C2E, "Galaxy" to 0xFF00C7BE
+            "ТВ" to 0xFF2C2C2E, "Galaxy" to 0xFF00C7BE, "VK Видео" to 0xFF0077FF, "Downloader" to 0xFFFF7A00,
+            "Happ" to 0xFF333333, "Prime Video" to 0xFF1A98FF, "Play Игры" to 0xFF01875F, "LiveTV" to 0xFF5856D6
         )
         AppRepository.testApps = apps.mapIndexed { i, (n, c) ->
             AppEntry("test.app$i", n, Intent(), LetterIcon(c.toInt(), n.take(1)))
         }
+        val H = WeatherData::Hour
+        WeatherData.data = WeatherData.Data(11, 53, false, 6, 15,
+            listOf(H("19", 11, 61, false), H("20", 10, 80, false), H("21", 8, 80, false),
+                H("22", 7, 61, false), H("23", 6, 61, false), H("0", 6, 80, false)),
+            System.currentTimeMillis())
     }
 
     private fun idle(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
+    private fun key(act: MainActivity, code: Int) {
+        act.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+        act.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+    }
 
     @Test
     fun screens() {
         val act = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         idle(800)
-        act.window.decorView.captureRoboImage("build/shots/1_home.png")
+        act.window.decorView.captureRoboImage("build/shots/01_home.png")
+
+        act.testGoToPage(1); idle(700)
+        act.window.decorView.captureRoboImage("build/shots/02_page2.png")
+
+        // Перемещение виджета
+        act.testGoToPage(0); idle(700)
+        act.startMove(act.testFirstWidget()!!); idle(300)
+        act.testMove(0, 1); idle(400)
+        act.window.decorView.captureRoboImage("build/shots/03_move.png")
+        key(act, KeyEvent.KEYCODE_BACK); idle(500)
+
+        // Новые виджеты
+        for (k in listOf("aclock", "month", "note", "weather_s")) {
+            act.addWidget(WidgetDefs.get(k)); idle(400)
+            key(act, KeyEvent.KEYCODE_DPAD_CENTER); idle(400)
+        }
+        val page = act.model.items.first { it.kind == "aclock" }.page
+        act.testGoToPage(page); idle(700)
+        act.window.decorView.captureRoboImage("build/shots/04_widgets.png")
+        act.testGoToPage(0); idle(700)
 
         act.openControlCenter(); idle(800)
-        act.window.decorView.captureRoboImage("build/shots/2_control_center.png")
+        act.window.decorView.captureRoboImage("build/shots/05_control_center.png")
 
         act.sheet.showWallpapers(); idle(800)
-        act.window.decorView.captureRoboImage("build/shots/3_wallpapers.png")
-
+        act.window.decorView.captureRoboImage("build/shots/06_wallpapers.png")
         act.sheet.hide(); idle(500)
-        act.setWallpaper(1)
-        act.onKeyDown(android.view.KeyEvent.KEYCODE_BACK, android.view.KeyEvent(0, android.view.KeyEvent.KEYCODE_BACK)); idle(800)
-        act.window.decorView.captureRoboImage("build/shots/4_home_sunset.png")
+        key(act, KeyEvent.KEYCODE_BACK); idle(500)
+
+        act.setWallpaper(6); idle(900)
+        act.window.decorView.captureRoboImage("build/shots/07_home_photo.png")
+        act.setWallpaper(12); idle(900)
+        act.window.decorView.captureRoboImage("build/shots/08_home_photo2.png")
     }
 }

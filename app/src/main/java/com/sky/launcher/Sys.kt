@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
+import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.os.Environment
 import android.os.StatFs
@@ -47,6 +48,66 @@ object Sys {
         val ni = try { cm.activeNetworkInfo } catch (e: Exception) { null } ?: return Net.NONE
         if (!ni.isConnected) return Net.NONE
         return if (ni.type == ConnectivityManager.TYPE_ETHERNET) Net.ETHERNET else Net.WIFI
+    }
+
+    class WifiNet(val ssid: String, val level: Int, val secure: Boolean, val caps: String)
+
+    @Suppress("DEPRECATION")
+    fun wifiScan(ctx: Context, startScan: Boolean = true): List<WifiNet> {
+        val wm = wifi(ctx) ?: return emptyList()
+        if (startScan) try { wm.startScan() } catch (e: Exception) {}
+        val res = try { wm.scanResults ?: emptyList() } catch (e: Exception) { emptyList() }
+        return res.filter { !it.SSID.isNullOrBlank() }
+            .groupBy { it.SSID }
+            .map { (ssid, list) ->
+                val best = list.maxByOrNull { it.level }!!
+                val caps = best.capabilities ?: ""
+                WifiNet(ssid, best.level, listOf("WEP", "WPA", "SAE", "PSK", "EAP").any { caps.contains(it) }, caps)
+            }
+            .sortedByDescending { it.level }
+    }
+
+    @Suppress("DEPRECATION")
+    fun currentSsid(ctx: Context): String? {
+        val s = try { wifi(ctx)?.connectionInfo?.ssid } catch (e: Exception) { null } ?: return null
+        val t = s.trim('"')
+        return if (t.isBlank() || t == "<unknown ssid>" || t == "0x") null else t
+    }
+
+    @Suppress("DEPRECATION")
+    fun isKnownWifi(ctx: Context, ssid: String): Boolean = try {
+        wifi(ctx)?.configuredNetworks?.any { it.SSID == "\"$ssid\"" } == true
+    } catch (e: Exception) { false }
+
+    /** Подключение к сети (работает, т.к. targetSdk = 28). */
+    @Suppress("DEPRECATION")
+    fun connectWifi(ctx: Context, net: WifiNet, password: String?): Boolean {
+        val wm = wifi(ctx) ?: return false
+        return try {
+            val quoted = "\"${net.ssid}\""
+            val existing = try { wm.configuredNetworks?.firstOrNull { it.SSID == quoted } } catch (e: Exception) { null }
+            val id = if (existing != null && password == null) existing.networkId else {
+                val conf = WifiConfiguration().apply {
+                    SSID = quoted
+                    when {
+                        password == null -> allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+                        net.caps.contains("WEP") -> {
+                            wepKeys[0] = "\"$password\""; wepTxKeyIndex = 0
+                            allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE)
+                            allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40)
+                        }
+                        else -> preSharedKey = "\"$password\""
+                    }
+                }
+                existing?.let { wm.removeNetwork(it.networkId) }
+                wm.addNetwork(conf)
+            }
+            if (id == -1) return false
+            wm.disconnect()
+            val ok = wm.enableNetwork(id, true)
+            wm.reconnect()
+            ok
+        } catch (e: Exception) { false }
     }
 
     fun freeGb(): Double =

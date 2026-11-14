@@ -192,13 +192,15 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
             .apply { topMargin = act.dpi(34); marginEnd = act.dpi(56) })
 
         // Действия
-        wifiB.onFocused = { caption.text = "Wi‑Fi · " + if (wifiB.on) "включён" else "выключен" }
+        wifiB.onFocused = { caption.text = "Wi‑Fi · " + (if (wifiB.on) (Sys.currentSsid(act) ?: "включён") else "выключен") + "  ·  удерживайте OK — выбор сети" }
+        wifiB.setOnLongClickListener { act.sheet.showWifi(); true }
         wifiB.setOnClickListener {
             val target = !Sys.wifiOn(act)
             if (Sys.setWifi(act, target)) { wifiB.on = target; wifiB.onFocused?.invoke(); postDelayed({ refresh() }, 1500) }
             else act.safeStart(Intent(Settings.ACTION_WIFI_SETTINGS))
         }
-        btB.onFocused = { caption.text = "Bluetooth · " + if (btB.on) "включён" else "выключен" }
+        btB.onFocused = { caption.text = "Bluetooth · " + (if (btB.on) "включён" else "выключен") + "  ·  удерживайте OK — устройства" }
+        btB.setOnLongClickListener { act.safeStart(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)); true }
         btB.setOnClickListener {
             if (!Sys.hasBt(act)) { act.safeStart(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)); return@setOnClickListener }
             val on = Sys.btOn(act)
