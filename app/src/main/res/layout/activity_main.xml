@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/wallpaper"
+    android:paddingStart="64dp"
+    android:paddingEnd="64dp"
+    android:paddingTop="40dp">
+
+    <TextView
+        android:id="@+id/clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="64sp"
+        android:fontFamily="sans-serif-light" />
+
+    <TextView
+        android:id="@+id/date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:textColor="#B3FFFFFF"
+        android:textSize="20sp" />
+
+    <GridView
+        android:id="@+id/grid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:numColumns="6"
+        android:horizontalSpacing="16dp"
+        android:verticalSpacing="16dp"
+        android:stretchMode="columnWidth"
+        android:listSelector="@android:color/transparent"
+        android:drawSelectorOnTop="false"
+        android:clipToPadding="false"
+        android:padding="8dp"
+        android:focusable="true" />
+</LinearLayout>
