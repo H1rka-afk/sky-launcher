@@ -47,7 +47,7 @@ class CalendarWidget(ctx: Context) : LinearLayout(ctx) {
         gravity = Gravity.CENTER
         background = Ui.round(ctx, 26f, 0xF2FFFFFF.toInt(), 0)
         elevation = ctx.dp(4f)
-        addView(wd); addView(day, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(4) })
+        addView(wd, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)); addView(day, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(4) })
         addView(mon, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(2) })
         update()
     }

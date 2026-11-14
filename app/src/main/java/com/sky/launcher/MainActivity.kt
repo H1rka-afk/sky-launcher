@@ -218,7 +218,7 @@ class MainActivity : Activity() {
         focusStack.add(currentFocus)
         if (overlay === sheet && cc.visibility == View.VISIBLE) cc.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         home.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-        home.animate().alpha(0.25f).scaleX(0.96f).scaleY(0.96f).setDuration(260).start()
+        home.animate().alpha(0.07f).scaleX(0.94f).scaleY(0.94f).setDuration(260).start()
     }
 
     fun overlayClosed(overlay: View) {
