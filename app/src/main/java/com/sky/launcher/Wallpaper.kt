@@ -13,22 +13,23 @@ import android.view.View
 import kotlin.math.cos
 import kotlin.math.sin
 
-class Wallpaper(val name: String, val base: Int, val colors: IntArray, val photo: Int = 0)
+class Wallpaper(val name: String, val base: Int, val colors: IntArray, val photo: String? = null)
 
 /** Загрузка фото с уменьшением под нужную ширину + небольшой кэш. */
 object Photos {
     private val cache = android.util.LruCache<String, Bitmap>(8)
 
-    fun decode(ctx: Context, res: Int, targetW: Int): Bitmap? {
-        val key = "$res@$targetW"
+    fun decode(ctx: Context, path: String, targetW: Int): Bitmap? {
+        val key = "$path@$targetW"
         cache.get(key)?.let { return it }
         return try {
             val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            android.graphics.BitmapFactory.decodeResource(ctx.resources, res, o)
+            ctx.assets.open(path).use { android.graphics.BitmapFactory.decodeStream(it, null, o) }
             var sample = 1
             while (o.outWidth / (sample * 2) >= targetW) sample *= 2
-            val b = android.graphics.BitmapFactory.decodeResource(ctx.resources, res,
-                android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            val b = ctx.assets.open(path).use {
+                android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            }
             if (b != null) cache.put(key, b)
             b
         } catch (e: Throwable) { null }
@@ -39,22 +40,30 @@ object Wallpapers {
     private fun w(name: String, base: Long, vararg c: Long) =
         Wallpaper(name, base.toInt(), c.map { it.toInt() }.toIntArray())
 
-    val all = listOf(
+    private val gradients = listOf(
         w("Аврора", 0xFF070B1F, 0xFF5E5CE6, 0xFF0A84FF, 0xFF64D2FF, 0xFFBF5AF2),
         w("Закат", 0xFF1A0820, 0xFFFF375F, 0xFFFF9F0A, 0xFFBF5AF2, 0xFFFF6B3D),
         w("Океан", 0xFF00121F, 0xFF0A84FF, 0xFF30D5C8, 0xFF5AC8FA, 0xFF1E3A8A),
         w("Лес", 0xFF04140C, 0xFF30D158, 0xFF00C7BE, 0xFF8FD14F, 0xFF0B5D3B),
         w("Графит", 0xFF0B0B0D, 0xFF48484A, 0xFF636366, 0xFF8E8E93, 0xFF2C2C2E),
         w("Персик", 0xFF2A0D14, 0xFFFF9F0A, 0xFFFFD60A, 0xFFFF375F, 0xFFFF6482),
-        p("Озеро Морейн", R.drawable.wp_01), p("Банф", R.drawable.wp_02),
-        p("Горное озеро", R.drawable.wp_03), p("Альпы", R.drawable.wp_04),
-        p("Туманное утро", R.drawable.wp_05), p("Сосны в тумане", R.drawable.wp_06),
-        p("Северное сияние", R.drawable.wp_07), p("Тромсё", R.drawable.wp_08),
-        p("Сейшелы", R.drawable.wp_09), p("Карибы", R.drawable.wp_10),
-        p("Золотой лес", R.drawable.wp_11), p("Осенняя дорога", R.drawable.wp_12),
     )
 
-    private fun p(name: String, res: Int) = Wallpaper(name, 0xFF000000.toInt(), IntArray(0), res)
+    var all: List<Wallpaper> = gradients
+        private set
+
+    /** Подгружает фото природы из assets/wallpapers.json (кладутся при сборке). */
+    fun load(ctx: Context) {
+        if (all.size > gradients.size) return
+        val photos = try {
+            val arr = org.json.JSONArray(ctx.assets.open("wallpapers.json").bufferedReader().readText())
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                Wallpaper(o.getString("name"), 0xFF000000.toInt(), IntArray(0), o.getString("file"))
+            }
+        } catch (e: Exception) { emptyList() }
+        all = gradients + photos
+    }
 
     fun get(i: Int) = all[i.coerceIn(0, all.size - 1)]
 }
@@ -108,12 +117,11 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
     }
 
     private var photoBmp: Bitmap? = null
-    private var photoRes = 0
+    private var photoRes: String? = null
     private val m = android.graphics.Matrix()
 
     private fun drawPhoto(canvas: Canvas, t: Float): Boolean {
-        val res = wallpaper.photo
-        if (res == 0) return false
+        val res = wallpaper.photo ?: return false
         if (photoRes != res || photoBmp == null) {
             photoRes = res
             photoBmp = Photos.decode(context, res, if (animated) maxOf(width, 1280) else maxOf(width, 320))
@@ -136,6 +144,6 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
             canvas.drawBitmap(buf, null, dst, scale)
         }
         if (animated) canvas.drawRect(dst, shade)
-        if (animated && running) postInvalidateDelayed(if (wallpaper.photo != 0) 33L else 50L)
+        if (animated && running) postInvalidateDelayed(if (wallpaper.photo != null) 33L else 50L)
     }
 }

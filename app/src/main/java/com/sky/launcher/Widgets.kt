@@ -319,7 +319,7 @@ class WeatherSmallWidget(act: MainActivity, item: HomeItem) : WidgetView(act, it
 // ---------------- Фото, заметка, устройство ----------------
 
 class PhotoWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val photos = Wallpapers.all.filter { it.photo != 0 }
+    private val photos = Wallpapers.all.filter { it.photo != null }
     private var idx = (System.currentTimeMillis() / 60_000L % maxOf(1, photos.size)).toInt()
     private val a = ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
     private val b = ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
@@ -340,7 +340,7 @@ class PhotoWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
     private fun show(v: ImageView) {
         if (photos.isEmpty()) { name.text = "Нет фото"; return }
         val w = photos[idx % photos.size]
-        v.setImageBitmap(Photos.decode(act, w.photo, 960))
+        v.setImageBitmap(Photos.decode(act, w.photo!!, 960))
         name.text = w.name
     }
 

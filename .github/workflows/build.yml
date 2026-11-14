@@ -21,14 +21,14 @@ jobs:
 
       - name: Nature wallpapers (Unsplash)
         working-directory: ${{ env.DIR }}
-        run: bash scripts/fetch_wallpapers.sh
+        run: python3 scripts/fetch_wallpapers.py
 
       - name: Save wallpapers to repo
         working-directory: ${{ env.DIR }}
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add app/src/main/res/drawable-nodpi
+          git add app/src/main/assets
           git diff --cached --quiet || (git commit -m "Add nature wallpapers [skip ci]" && git push)
 
       - uses: actions/setup-java@v5

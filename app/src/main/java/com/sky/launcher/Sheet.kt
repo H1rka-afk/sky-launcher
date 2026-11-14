@@ -202,8 +202,8 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
             }
         }
         val indexed = Wallpapers.all.withIndex().map { it.index to it.value }
-        section("Живые", indexed.filter { it.second.photo == 0 })
-        section("Природа", indexed.filter { it.second.photo != 0 })
+        section("Живые", indexed.filter { it.second.photo == null })
+        section("Природа", indexed.filter { it.second.photo != null })
         val sv = ScrollView(act).apply { isVerticalScrollBarEnabled = false; clipChildren = false; clipToPadding = false }
         sv.addView(content)
         b.addView(sv, LinearLayout.LayoutParams(WRAP, act.dpi(400)))

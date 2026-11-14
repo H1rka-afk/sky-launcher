@@ -75,6 +75,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         repo = AppRepository(this)
         model = HomeModel(this)
+        Wallpapers.load(this)
         WeatherData.onUpdate = { updateWidgets() }
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
