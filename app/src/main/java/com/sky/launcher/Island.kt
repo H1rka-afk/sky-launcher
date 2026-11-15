@@ -20,7 +20,7 @@ import android.widget.LinearLayout
 
 /**
  * Dynamic Island: чёрная «пилюля» сверху по центру.
- *  • короткие события (громкость, уведомления, Wi‑Fi, Bluetooth, снимок) — раскрываются на пару секунд;
+ *  • короткие события (уведомления, Wi‑Fi, Bluetooth, снимок) — раскрываются на пару секунд;
  *  • «живые» занятия (таймер сна, Sky Drop, загрузка обновления) — висят компактно на главном экране.
  * На главном экране рисуется в окне Sky OS, поверх других приложений — через службу Sky OS.
  */
@@ -60,12 +60,6 @@ object Island {
 
     fun message(title: String, sub: String? = null, icon: Int? = R.drawable.ic_info, tint: Int = Color.WHITE, ms: Long = 2600) =
         show(Content(icon = icon, title = title, sub = sub, tint = tint, expanded = sub != null), ms)
-
-    fun volume(level: Int, max: Int, muted: Boolean) {
-        val f = if (muted || max <= 0) 0f else level / max.toFloat()
-        show(Content(icon = if (muted || level == 0) R.drawable.ic_volume_off else R.drawable.ic_volume,
-            title = "", bar = f, right = if (muted) "Без звука" else "$level"), 1800)
-    }
 
     fun notification(item: Notify.Item) =
         show(Content(bmp = item.icon, title = item.title.ifBlank { item.app }, sub = item.text.ifBlank { item.app }, expanded = true), 4500)

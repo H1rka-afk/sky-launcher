@@ -141,16 +141,12 @@ class ScreenshotTest {
     fun island() {
         val act = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         idle(800)
-        Island.volume(9, 15, false); idle(900)
-        act.window.decorView.captureRoboImage("build/shots/19_island_volume.png")
         // кадр в середине «перетекания» в уведомление
         Island.message("Wi‑Fi подключён", "Home_5G", R.drawable.ic_wifi, 0xFF0A84FF.toInt())
         idle(200)
         act.window.decorView.captureRoboImage("build/shots/19b_island_morph.png")
         idle(900)
         act.window.decorView.captureRoboImage("build/shots/19c_island_wifi.png")
-        val ev = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP)
-        org.junit.Assert.assertTrue(IslandEvents.volumeKey(act, ev))
         idle(3000)
         Notify.post(act, "Мама", "Ты сегодня приедешь на ужин?", "test.app0", "YouTube",
             IconFactory.get(act, act.model.apps["test.app0"]!!, act.dpi(42)))
@@ -213,6 +209,11 @@ class ScreenshotTest {
         val lock = Robolectric.buildActivity(LockActivity::class.java).setup().get()
         idle(800)
         lock.window.decorView.captureRoboImage("build/shots/14_lock.png")
+        // разблокировка без кода: замок в островке открывается
+        lock.onKeyDown(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER))
+        idle(560)
+        lock.window.decorView.captureRoboImage("build/shots/14b_unlock_open.png")
+        idle(1200)
         Lock.setPin("1234")
         val lock2 = Robolectric.buildActivity(LockActivity::class.java).setup().get()
         idle(300)

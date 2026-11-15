@@ -88,8 +88,8 @@ open class LockActivity : Activity() {
 
         // --- Основной вид ---
         main = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-        main.addView(ImageView(this).apply { setImageResource(R.drawable.ic_lock); alpha = 0.9f },
-            LinearLayout.LayoutParams(dpi(20), dpi(20)).apply { topMargin = dpi(28) })
+        // место под островок с замком
+        main.addView(View(this), LinearLayout.LayoutParams(1, dpi(40)))
         date = Ui.text(this, 17f, Color.WHITE, Ui.medium)
         main.addView(date, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(14) })
         time = Ui.text(this, 96f, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL)).apply { letterSpacing = -0.02f }
@@ -163,6 +163,9 @@ open class LockActivity : Activity() {
             LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(22) })
         padFirst = first
         root.addView(pad, FrameLayout.LayoutParams(M, M))
+        // Dynamic Island с замком (только на экране блокировки)
+        island = LockIsland(this)
+        root.addView(island, FrameLayout.LayoutParams(W, W, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dpi(10) })
         setContentView(root)
         root.isFocusable = true
 
@@ -173,10 +176,12 @@ open class LockActivity : Activity() {
             padTitle.text = if (mode == "set") "Новый код-пароль" else "Введите текущий код-пароль"
             updateDots()
             pad.post { padFirst?.requestFocus() }
-        }
+            island?.visibility = View.GONE
+        } else island?.appear()
     }
 
     private var padFirst: View? = null
+    private var island: LockIsland? = null
 
     private fun weatherLine(): View {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -281,31 +286,41 @@ open class LockActivity : Activity() {
         if (Lock.check(entered.toString())) { unlock(); return }
         fails++
         entered.clear()
+        island?.shake()
         dots.animate().translationX(dp(18f)).setInterpolator(CycleInterpolator(3f)).setDuration(400)
             .withEndAction { dots.translationX = 0f; updateDots() }.start()
         if (fails >= 5) { blockedUntil = System.currentTimeMillis() + 30_000; fails = 0; padTitle.text = "Слишком много попыток — подождите 30 с" }
         else padTitle.text = "Неверный код-пароль"
     }
 
+    private var unlocking = false
+
     private fun unlock() {
+        if (unlocking) return
+        unlocking = true
         Lock.locked = false
         val target = if (pad.visibility == View.VISIBLE) pad else main
-        target.animate().translationY(-dp(120f)).alpha(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).withEndAction {
-            finish()
-            @Suppress("DEPRECATION") overridePendingTransition(0, android.R.anim.fade_out)
-            // напоминание о код-пароле — не чаще раза в 12 часов
-            if (!Lock.hasPin() && Prefs.pinReminder) {
-                val p = getSharedPreferences("skyos_settings", Context.MODE_PRIVATE)
-                val last = p.getLong("pin_remind_ts", 0)
-                if (System.currentTimeMillis() - last > 12 * 3600_000L) {
-                    p.edit().putLong("pin_remind_ts", System.currentTimeMillis()).apply()
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        Notify.post(applicationContext, "Установите код-пароль",
-                            "Откройте Настройки → Код-пароль, чтобы защитить Sky OS", keep = false)
-                    }, 900)
-                }
+        // как на iPhone: содержимое уезжает вверх, замок в островке открывается, островок исчезает
+        target.animate().translationY(-dp(120f)).alpha(0f).setDuration(320).setInterpolator(DecelerateInterpolator()).start()
+        val isl = island
+        if (isl != null && isl.visibility == View.VISIBLE) isl.unlock { close() } else target.postDelayed({ close() }, 320)
+    }
+
+    private fun close() {
+        finish()
+        @Suppress("DEPRECATION") overridePendingTransition(0, android.R.anim.fade_out)
+        // напоминание о код-пароле — не чаще раза в 12 часов
+        if (!Lock.hasPin() && Prefs.pinReminder) {
+            val p = getSharedPreferences("skyos_settings", Context.MODE_PRIVATE)
+            val last = p.getLong("pin_remind_ts", 0)
+            if (System.currentTimeMillis() - last > 12 * 3600_000L) {
+                p.edit().putLong("pin_remind_ts", System.currentTimeMillis()).apply()
+                Handler(Looper.getMainLooper()).postDelayed({
+                    Notify.post(applicationContext, "Установите код-пароль",
+                        "Откройте Настройки → Код-пароль, чтобы защитить Sky OS", keep = false)
+                }, 900)
             }
-        }.start()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

@@ -70,15 +70,6 @@ object Prefs {
         get() = p.getBoolean("island", true)
         set(v) = p.edit().putBoolean("island", v).apply()
 
-    var islandVolume: Boolean
-        get() = p.getBoolean("island_volume", true)
-        set(v) = p.edit().putBoolean("island_volume", v).apply()
-
-    /** Телевизор сам обрабатывает кнопки громкости (служба их не получает). */
-    var volumeKeysByTv: Boolean
-        get() = p.getBoolean("vol_keys_tv", false)
-        set(v) = p.edit().putBoolean("vol_keys_tv", v).apply()
-
     var appNotifications: Boolean
         get() = p.getBoolean("app_notifications", true)
         set(v) = p.edit().putBoolean("app_notifications", v).apply()

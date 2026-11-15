@@ -356,8 +356,6 @@ class MainActivity : Activity() {
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         val code = e.keyCode
-        // служба Sky OS выключена — громкость в островке хотя бы на главном экране
-        if (HomeInterceptService.instance == null && IslandEvents.volumeKey(this, e)) return true
         if (moving != null && !sheet.open && !cc.open) {
             val handled = when (code) {
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP,

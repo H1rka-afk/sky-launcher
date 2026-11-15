@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -79,9 +78,6 @@ class HomeInterceptService : AccessibilityService() {
             )
         )
     }
-
-    /** Кнопки громкости: громкость меняем сами и показываем в островке вместо полоски телевизора. */
-    override fun onKeyEvent(event: KeyEvent): Boolean = IslandEvents.volumeKey(this, event)
 
     override fun onInterrupt() {}
 

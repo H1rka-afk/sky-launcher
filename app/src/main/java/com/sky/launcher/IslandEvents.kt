@@ -5,68 +5,25 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioManager
 import android.net.NetworkInfo
 import android.net.wifi.WifiManager
-import android.view.KeyEvent
 
-/** События системы для Dynamic Island: громкость, Wi‑Fi, Bluetooth, заряд пульта. */
+/** События системы для Dynamic Island: Wi‑Fi, Bluetooth, заряд пульта. */
 object IslandEvents {
 
     private const val BT_BATTERY = "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
     private const val BT_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
 
-    private const val VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
-    private const val MUTE_CHANGED = "android.media.STREAM_MUTE_CHANGED_ACTION"
-    private const val EXTRA_STREAM = "android.media.EXTRA_VOLUME_STREAM_TYPE"
 
     private var wifiConnected: Boolean? = null
-    private var lastOwnKey = 0L
     private var registered = false
     private var appCtx: Context? = null
     private val batteryWarned = HashMap<String, Int>()
-
-    /** Громкость: true — нажатие обработано Sky OS (полоска телевизора не появится). */
-    fun volumeKey(ctx: Context, e: KeyEvent): Boolean {
-        val code = e.keyCode
-        if (code != KeyEvent.KEYCODE_VOLUME_UP && code != KeyEvent.KEYCODE_VOLUME_DOWN && code != KeyEvent.KEYCODE_VOLUME_MUTE) return false
-        Prefs.init(ctx)
-        if (!Prefs.island || !Prefs.islandVolume) return false
-        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
-        // громкость управляется саундбаром/ресивером (HDMI-CEC) — пусть работает как обычно
-        if (am.isVolumeFixed) return false
-        if (e.action == KeyEvent.ACTION_DOWN) {
-            if (code == KeyEvent.KEYCODE_VOLUME_MUTE && e.repeatCount > 0) return true
-            val dir = when (code) {
-                KeyEvent.KEYCODE_VOLUME_UP -> AudioManager.ADJUST_RAISE
-                KeyEvent.KEYCODE_VOLUME_DOWN -> AudioManager.ADJUST_LOWER
-                else -> AudioManager.ADJUST_TOGGLE_MUTE
-            }
-            try { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, 0) } catch (ex: Exception) { return false }
-            lastOwnKey = android.os.SystemClock.uptimeMillis()
-            Prefs.volumeKeysByTv = false
-            showVolume(am)
-        }
-        return true
-    }
-
-    fun showVolume(am: AudioManager) {
-        val s = AudioManager.STREAM_MUSIC
-        Island.volume(am.getStreamVolume(s), am.getStreamMaxVolume(s), am.isStreamMute(s))
-    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             if (!Prefs.island) return
             when (i.action) {
-                VOLUME_CHANGED, MUTE_CHANGED -> {
-                    // кнопки громкости обработал сам телевизор (до Sky OS они не дошли) — показываем уровень в островке
-                    if (!Prefs.islandVolume) return
-                    if (i.getIntExtra(EXTRA_STREAM, AudioManager.STREAM_MUSIC) != AudioManager.STREAM_MUSIC) return
-                    if (android.os.SystemClock.uptimeMillis() - lastOwnKey < 800) return
-                    if (!Prefs.volumeKeysByTv) Prefs.volumeKeysByTv = true
-                    (c.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.let { showVolume(it) }
-                }
                 WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
                     @Suppress("DEPRECATION")
                     val info = i.getParcelableExtra<NetworkInfo>(WifiManager.EXTRA_NETWORK_INFO) ?: return
@@ -113,8 +70,6 @@ object IslandEvents {
         val app = ctx.applicationContext
         appCtx = app
         val f = IntentFilter().apply {
-            addAction(VOLUME_CHANGED)
-            addAction(MUTE_CHANGED)
             addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)

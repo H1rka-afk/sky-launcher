@@ -510,21 +510,12 @@ class SettingsActivity : Activity() {
         val g = group(content)
         toggle(g, "Dynamic Island", { Prefs.island }) { Prefs.island = it; rebuild() }
         footer("В островке показываются уведомления, таймер сна, Sky Drop, загрузка обновления, подключение Wi‑Fi и Bluetooth, " +
-            "заряд пульта и снимки экрана. Поверх других приложений — когда включена служба Sky OS.")
+            "заряд пульта и снимки экрана, а на экране блокировки — замок, который открывается при разблокировке. " +
+            "Поверх других приложений — когда включена служба Sky OS.")
         if (Prefs.island) {
-            val g2 = group(content)
-            toggle(g2, "Громкость в островке", { Prefs.islandVolume }) { Prefs.islandVolume = it }
-            footer(if (Prefs.volumeKeysByTv)
-                "Ваш телевизор сам обрабатывает кнопки громкости — до Sky OS они не доходят, поэтому его полоску убрать нельзя. " +
-                    "Островок показывает уровень громкости рядом с ней."
-            else "Кнопки громкости показывают уровень в островке вместо полоски телевизора. " +
-                "Если появляются две полоски или громкость перестала меняться — выключите.")
             val g3 = group(content)
-            item(g3, "Показать уведомление", color = Ui.BLUE) {
+            item(g3, "Показать уведомление", color = Ui.BLUE, last = true) {
                 Notify.post(this, "Привет от Sky OS", "Так уведомления выглядят в Dynamic Island", keep = false)
-            }
-            item(g3, "Показать громкость", color = Ui.BLUE, last = true) {
-                (getSystemService(AUDIO_SERVICE) as? android.media.AudioManager)?.let { IslandEvents.showVolume(it) }
             }
         }
     }
