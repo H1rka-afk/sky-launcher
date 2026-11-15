@@ -83,6 +83,12 @@ class SettingsActivity : Activity() {
     private val heavy = setOf("wallpaper", "cc", "home", "display")
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingShow: Runnable? = null
+    private var rebuilding = false
+    private var progressLabel: TextView? = null
+    private var lastUpdState = ""
+
+    private fun updState() = "${Updater.available?.code}|${Updater.checking}|${Updater.lastError}|${Updater.progress >= 0}"
+    private fun progressText() = if (Updater.progress >= 0) "Загрузка… ${Updater.progress}%" else "Загрузить и установить"
     private lateinit var contentScroll: ScrollView
     private val sideRows = HashMap<String, View>()
     private var current = ""
@@ -118,7 +124,14 @@ class SettingsActivity : Activity() {
         val start = intent.getStringExtra(EXTRA_SECTION) ?: "about"
         show(start)
         sideRows[start]?.requestFocus()
-        Updater.onChange = { if (current == "update" || current == "about") rebuild(); updateSideBadge() }
+        Updater.onChange = {
+            updateSideBadge()
+            val st = updState()
+            if (st != lastUpdState) {          // перестраиваем только при смене состояния
+                lastUpdState = st
+                if (current == "update") rebuild()
+            } else progressLabel?.text = progressText()   // проценты — только текст кнопки
+        }
         WeatherData.onUpdate = { if (current == "weather") rebuild() }
     }
 
@@ -194,6 +207,7 @@ class SettingsActivity : Activity() {
                 row.addView(chevron())
                 row.setOnFocusChangeListener { v, f ->
                     highlight(v, f, i == g.size - 1)
+                    if (rebuilding) return@setOnFocusChangeListener
                     // раздел открывается, когда фокус задержался — быстрое листание меню не тормозит
                     pendingShow?.let { handler.removeCallbacks(it) }
                     if (f && id != "tv") { pendingShow = Runnable { show(id) }.also { handler.postDelayed(it, 160) } }
@@ -295,13 +309,21 @@ class SettingsActivity : Activity() {
     // ---------------- Разделы ----------------
 
     private fun rebuild() {
-        val focusIdx = currentFocus?.let { f -> if (isInContent(f)) focusIndex(f) else -1 } ?: -1
+        val f = currentFocus
+        val inContent = f != null && isInContent(f)
+        val focusIdx = if (inContent) focusIndex(f!!) else -1
         val scroll = contentScroll.scrollY
+        rebuilding = true
+        // держим фокус на области содержимого, пока она перестраивается — иначе он улетит в меню
+        if (inContent) { contentScroll.isFocusable = true; contentScroll.requestFocus() }
         show(current, force = true)
-        contentScroll.post {
-            contentScroll.scrollTo(0, scroll)
-            if (focusIdx >= 0) focusables(content).getOrNull(focusIdx)?.requestFocus()
+        contentScroll.scrollTo(0, scroll)
+        if (inContent) {
+            val list = focusables(content)
+            (list.getOrNull(focusIdx) ?: list.lastOrNull())?.requestFocus()
         }
+        contentScroll.isFocusable = false
+        rebuilding = false
     }
 
     private fun focusables(g: ViewGroup, out: ArrayList<View> = ArrayList()): ArrayList<View> {
@@ -389,12 +411,16 @@ class SettingsActivity : Activity() {
             }
         }
         card.addView(col, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(16) })
+        progressLabel = null
+        lastUpdState = updState()
         if (a != null) {
-            val p = Updater.progress
-            item(g, if (p >= 0) "Загрузка… $p%" else "Загрузить и установить", color = Ui.BLUE, last = true) {
-                Updater.downloadAndInstall(this)
-                Toast.makeText(this, "Загружаю обновление…", Toast.LENGTH_SHORT).show()
+            val r = item(g, progressText(), color = Ui.BLUE, last = true) {
+                if (Updater.progress < 0) {
+                    Updater.downloadAndInstall(this)
+                    Toast.makeText(this, "Загружаю обновление…", Toast.LENGTH_SHORT).show()
+                }
             }
+            progressLabel = r.getChildAt(0) as? TextView
         } else item(g, "Проверить обновления", color = Ui.BLUE, last = true) { Updater.check(this, manual = true) }
         if (a != null) footer("После загрузки откроется окно установки Android — нажмите «Установить». " +
             "Если появится запрос, разрешите Sky OS устанавливать приложения.")
