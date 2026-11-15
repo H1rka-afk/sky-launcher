@@ -205,6 +205,7 @@ class MainActivity : Activity() {
         updateBadges()
         Kiosk.enterIfOwner(this)
         Notify.activityHost = root
+        IslandEvents.register(this)
         Island.hostChanged()
         if (Lock.locked && !LockActivity.visible) Lock.lockNow(this)
         lastInput = SystemClock.uptimeMillis()

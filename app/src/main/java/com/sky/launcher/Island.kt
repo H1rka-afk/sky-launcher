@@ -1,6 +1,5 @@
 package com.sky.launcher
 
-import android.animation.LayoutTransition
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -15,7 +14,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -93,7 +91,7 @@ object Island {
         removePill()
         if (host != null) {
             val p = Pill(host.context)
-            host.addView(p, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            host.addView(p, FrameLayout.LayoutParams(p.boxW, p.boxH,
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = host.context.dpi(10) })
             p.appear()
             pill = p; pillHost = host
@@ -104,9 +102,9 @@ object Island {
             val wm = svc.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             val p = Pill(svc)
             val wrap = FrameLayout(svc).apply { clipChildren = false }
-            wrap.addView(p, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL))
+            wrap.addView(p, FrameLayout.LayoutParams(p.boxW, p.boxH, Gravity.CENTER_HORIZONTAL))
             val lp = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                p.boxW, p.boxH,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -140,55 +138,91 @@ object Island {
         else (p.parent as? ViewGroup)?.removeView(p)
     }
 
-    /** Сама «пилюля». Размер меняется плавно (LayoutTransition), как в iOS. */
-    private class Pill(ctx: Context) : LinearLayout(ctx) {
+    /** Пружина как у iOS: быстро растягивается, чуть перелетает и мягко садится. */
+    private val spring = android.animation.TimeInterpolator { t ->
+        (1f - kotlin.math.exp(-6.5f * t) * kotlin.math.cos(11f * t)).toFloat()
+    }
+
+    /**
+     * Сама «пилюля». Вид фиксированного размера, а чёрная капсула рисуется внутри
+     * с анимированными шириной и высотой — так она плавно «перетекает» между состояниями.
+     */
+    private class Pill(ctx: Context) : FrameLayout(ctx) {
+        val boxW = ctx.dpi(440)
+        val boxH = ctx.dpi(84)
+        private val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         private val icon = ImageView(ctx)
-        private val texts = LinearLayout(ctx).apply { orientation = VERTICAL }
-        private val title = Ui.text(ctx, 13f, Color.WHITE, Ui.medium, false).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
-        private val sub = Ui.text(ctx, 12f, 0xB3FFFFFF.toInt(), Ui.regular, false).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        private val texts = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        private val title = Ui.text(ctx, 12f, Color.WHITE, Ui.medium, false).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+        private val sub = Ui.text(ctx, 11f, 0xB3FFFFFF.toInt(), Ui.regular, false).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
         private val bar = Bar(ctx)
         private val ring = Ring(ctx)
-        private val right = Ui.text(ctx, 13f, Color.WHITE, Ui.medium, false).apply { maxLines = 1 }
+        private val right = Ui.text(ctx, 12f, Color.WHITE, Ui.medium, false).apply { maxLines = 1 }
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+        private val rect = RectF()
+        private var bgW = ctx.dp(50f)
+        private var bgH = ctx.dp(20f)
+        private var morph: android.animation.ValueAnimator? = null
+        private var kind: String? = null
+        private var shown = false
 
         init {
-            orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = Ui.round(ctx, 22f, Color.BLACK, 0x22FFFFFF)
-            minimumHeight = ctx.dpi(34)
-            layoutTransition = LayoutTransition().apply {
-                enableTransitionType(LayoutTransition.CHANGING)
-                setDuration(260)
-            }
-            addView(icon, LayoutParams(ctx.dpi(20), ctx.dpi(20)))
+            setWillNotDraw(false)
+            clipChildren = false
+            row.addView(icon, LinearLayout.LayoutParams(ctx.dpi(16), ctx.dpi(16)))
             texts.addView(title); texts.addView(sub)
-            addView(texts, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(10) })
-            addView(bar, LayoutParams(ctx.dpi(150), ctx.dpi(6)).apply { marginStart = ctx.dpi(12) })
-            addView(ring, LayoutParams(ctx.dpi(20), ctx.dpi(20)).apply { marginStart = ctx.dpi(12) })
-            addView(right, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(12) })
+            row.addView(texts, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(8) })
+            row.addView(bar, LinearLayout.LayoutParams(ctx.dpi(104), ctx.dpi(5)).apply { marginStart = ctx.dpi(10) })
+            row.addView(ring, LinearLayout.LayoutParams(ctx.dpi(16), ctx.dpi(16)).apply { marginStart = ctx.dpi(10) })
+            row.addView(right, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(10) })
+            addView(row, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            row.alpha = 0f
         }
 
-        fun bind(c: Content) {
+        override fun onDraw(c: Canvas) {
+            val l = (width - bgW) / 2f
+            rect.set(l, 0f, l + bgW, bgH)
+            val r = minOf(bgH / 2f, context.dp(22f))
+            c.drawRoundRect(rect, r, r, paint)
+        }
+
+        private fun morphTo(w: Float, h: Float, ms: Long, interp: android.animation.TimeInterpolator, end: (() -> Unit)? = null) {
+            morph?.cancel()
+            val w0 = bgW; val h0 = bgH
+            morph = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = ms; interpolator = interp
+                addUpdateListener { val f = it.animatedValue as Float; bgW = w0 + (w - w0) * f; bgH = h0 + (h - h0) * f; invalidate() }
+                if (end != null) addListener(object : android.animation.AnimatorListenerAdapter() {
+                    var cancelled = false
+                    override fun onAnimationCancel(a: android.animation.Animator) { cancelled = true }
+                    override fun onAnimationEnd(a: android.animation.Animator) { if (!cancelled) end() }
+                })
+                start()
+            }
+        }
+
+        private fun apply(c: Content) {
             val big = c.expanded
-            val pad = if (big) context.dpi(14) else context.dpi(12)
-            setPadding(pad, if (big) context.dpi(11) else context.dpi(7), context.dpi(16), if (big) context.dpi(11) else context.dpi(7))
-            background = Ui.round(context, if (big) 24f else 20f, Color.BLACK, 0x22FFFFFF)
-            val iconSize = context.dpi(if (big) 34 else 20)
-            (icon.layoutParams as LayoutParams).apply { width = iconSize; height = iconSize }
+            val ctx = context
+            row.setPadding(ctx.dpi(if (big) 12 else 10), ctx.dpi(if (big) 9 else 5), ctx.dpi(if (big) 16 else 12), ctx.dpi(if (big) 9 else 5))
+            val iconSize = ctx.dpi(if (big) 28 else 16)
+            (icon.layoutParams as LinearLayout.LayoutParams).apply { width = iconSize; height = iconSize }
             when {
                 c.bmp != null -> { icon.setImageBitmap(c.bmp); icon.clearColorFilter(); icon.visibility = VISIBLE }
                 c.icon != null -> { icon.setImageResource(c.icon); icon.setColorFilter(c.tint); icon.visibility = VISIBLE }
                 else -> icon.visibility = GONE
             }
             title.text = c.title
-            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (big) 14f else 13f)
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (big) 13f else 12f)
             title.typeface = if (big) Ui.bold else Ui.medium
-            texts.visibility = if (c.title.isEmpty() && c.sub == null) GONE else VISIBLE
+            texts.visibility = if (c.title.isEmpty() && c.sub.isNullOrEmpty()) GONE else VISIBLE
             title.visibility = if (c.title.isEmpty()) GONE else VISIBLE
             sub.text = c.sub ?: ""
             sub.visibility = if (c.sub.isNullOrEmpty()) GONE else VISIBLE
-            texts.layoutParams = (texts.layoutParams as LayoutParams).apply {
-                width = if (big) context.dpi(320) else ViewGroup.LayoutParams.WRAP_CONTENT
+            texts.layoutParams = (texts.layoutParams as LinearLayout.LayoutParams).apply {
+                width = if (big) ctx.dpi(270) else ViewGroup.LayoutParams.WRAP_CONTENT
             }
-            title.maxWidth = context.dpi(320)
+            title.maxWidth = ctx.dpi(270)
             bar.visibility = if (c.bar != null) VISIBLE else GONE
             c.bar?.let { bar.set(it) }
             ring.visibility = if (c.ring != null) VISIBLE else GONE
@@ -197,13 +231,60 @@ object Island {
             right.visibility = if (c.right.isNullOrEmpty()) GONE else VISIBLE
         }
 
+        private fun target(): Pair<Float, Float> {
+            row.measure(MeasureSpec.makeMeasureSpec(boxW, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(boxH, MeasureSpec.AT_MOST))
+            return row.measuredWidth.toFloat() to row.measuredHeight.toFloat()
+        }
+
+        private fun kindOf(c: Content) = when {
+            c.bar != null -> "volume"
+            c.ring != null -> "ring:" + c.title
+            else -> "msg:" + c.title + c.sub + c.right
+        }
+
+        fun bind(c: Content) {
+            val k = kindOf(c)
+            if (shown && k.substringBefore(':') == kind?.substringBefore(':') && (k == "volume" || k.startsWith("ring"))) {
+                // то же занятие (громкость, проценты) — обновляем на месте, капсула чуть «дышит»
+                kind = k; apply(c)
+                val (w, h) = target()
+                if (kotlin.math.abs(w - bgW) > 1 || kotlin.math.abs(h - bgH) > 1) morphTo(w, h, 380, spring)
+                return
+            }
+            if (shown && k == kind) return
+            kind = k
+            val first = !shown
+            shown = true
+            row.animate().cancel()
+            if (first) {
+                apply(c)
+                val (w, h) = target()
+                morphTo(w, h, 620, spring)
+                row.alpha = 0f; row.scaleX = 0.85f; row.scaleY = 0.85f
+                row.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(140).setDuration(220).start()
+            } else {
+                // содержимое гаснет, капсула перетекает в новый размер, новое содержимое проявляется
+                row.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setStartDelay(0).setDuration(90).withEndAction {
+                    apply(c)
+                    val (w, h) = target()
+                    morphTo(w, h, 560, spring)
+                    row.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(110).setDuration(200).start()
+                }.start()
+            }
+        }
+
         fun appear() {
-            alpha = 0f; scaleX = 0.4f; scaleY = 0.6f
-            animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(OvershootInterpolator(1.2f)).start()
+            bgW = context.dp(50f); bgH = context.dp(20f)
+            alpha = 0f
+            animate().alpha(1f).setDuration(120).start()
         }
 
         fun disappear(done: () -> Unit) {
-            animate().alpha(0f).scaleX(0.5f).scaleY(0.6f).setDuration(220).withEndAction(done).start()
+            row.animate().cancel()
+            row.animate().alpha(0f).scaleX(0.85f).scaleY(0.85f).setStartDelay(0).setDuration(110).start()
+            morphTo(context.dp(50f), context.dp(20f), 300, android.view.animation.AccelerateDecelerateInterpolator()) {
+                animate().alpha(0f).setDuration(140).withEndAction(done).start()
+            }
         }
     }
 
@@ -224,9 +305,9 @@ object Island {
     /** Кольцо прогресса; -1 — крутится без процента. */
     private class Ring(ctx: Context) : View(ctx) {
         private var v = 0f
-        private val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = 0x40FFFFFF; strokeWidth = ctx.dp(2.5f) }
+        private val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = 0x40FFFFFF; strokeWidth = ctx.dp(2f) }
         private val fg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; color = 0xFF30D158.toInt(); strokeWidth = ctx.dp(2.5f); strokeCap = Paint.Cap.ROUND
+            style = Paint.Style.STROKE; color = 0xFF30D158.toInt(); strokeWidth = ctx.dp(2f); strokeCap = Paint.Cap.ROUND
         }
         private val r = RectF()
         fun set(f: Float) { v = f; invalidate() }

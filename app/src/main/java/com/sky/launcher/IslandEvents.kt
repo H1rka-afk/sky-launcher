@@ -16,7 +16,14 @@ object IslandEvents {
     private const val BT_BATTERY = "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
     private const val BT_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
 
+    private const val VOLUME_CHANGED = "android.media.VOLUME_CHANGED_ACTION"
+    private const val MUTE_CHANGED = "android.media.STREAM_MUTE_CHANGED_ACTION"
+    private const val EXTRA_STREAM = "android.media.EXTRA_VOLUME_STREAM_TYPE"
+
     private var wifiConnected: Boolean? = null
+    private var lastOwnKey = 0L
+    private var registered = false
+    private var appCtx: Context? = null
     private val batteryWarned = HashMap<String, Int>()
 
     /** Громкость: true — нажатие обработано Sky OS (полоска телевизора не появится). */
@@ -36,6 +43,8 @@ object IslandEvents {
                 else -> AudioManager.ADJUST_TOGGLE_MUTE
             }
             try { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, 0) } catch (ex: Exception) { return false }
+            lastOwnKey = android.os.SystemClock.uptimeMillis()
+            Prefs.volumeKeysByTv = false
             showVolume(am)
         }
         return true
@@ -50,6 +59,14 @@ object IslandEvents {
         override fun onReceive(c: Context, i: Intent) {
             if (!Prefs.island) return
             when (i.action) {
+                VOLUME_CHANGED, MUTE_CHANGED -> {
+                    // кнопки громкости обработал сам телевизор (до Sky OS они не дошли) — показываем уровень в островке
+                    if (!Prefs.islandVolume) return
+                    if (i.getIntExtra(EXTRA_STREAM, AudioManager.STREAM_MUSIC) != AudioManager.STREAM_MUSIC) return
+                    if (android.os.SystemClock.uptimeMillis() - lastOwnKey < 800) return
+                    if (!Prefs.volumeKeysByTv) Prefs.volumeKeysByTv = true
+                    (c.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.let { showVolume(it) }
+                }
                 WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
                     @Suppress("DEPRECATION")
                     val info = i.getParcelableExtra<NetworkInfo>(WifiManager.EXTRA_NETWORK_INFO) ?: return
@@ -89,15 +106,22 @@ object IslandEvents {
         }
     }
 
+    /** Регистрируется один раз на всё приложение (вызывают и служба, и главный экран). */
     fun register(ctx: Context) {
+        if (registered) return
+        registered = true
+        val app = ctx.applicationContext
+        appCtx = app
         val f = IntentFilter().apply {
+            addAction(VOLUME_CHANGED)
+            addAction(MUTE_CHANGED)
             addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BT_BATTERY)
         }
-        try { ctx.registerReceiver(receiver, f) } catch (e: Exception) {}
+        try { app.registerReceiver(receiver, f) } catch (e: Exception) { registered = false }
     }
 
-    fun unregister(ctx: Context) { try { ctx.unregisterReceiver(receiver) } catch (e: Exception) {} }
+    fun unregister(ctx: Context) {}
 }
