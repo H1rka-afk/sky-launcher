@@ -68,5 +68,53 @@
   "file": "wallpapers/wp_14.webp",
   "name": "Закат у моря",
   "source": "https://unsplash.com/photos/photo-1475924156734-496f6cac6ec1"
+ },
+ {
+  "file": "wallpapers/wp_15.webp",
+  "name": "Земля из космоса",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1446776811953-b23d57bd21aa"
+ },
+ {
+  "file": "wallpapers/wp_16.webp",
+  "name": "Млечный Путь",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1419242902214-272b3f66ee7a"
+ },
+ {
+  "file": "wallpapers/wp_17.webp",
+  "name": "Звёздное небо",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1444703686981-a3abbc4d4fe3"
+ },
+ {
+  "file": "wallpapers/wp_18.webp",
+  "name": "Галактика",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1502134249126-9f3755a50d78"
+ },
+ {
+  "file": "wallpapers/wp_19.webp",
+  "name": "Огни Земли",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1451187580459-43490279c0fa"
+ },
+ {
+  "file": "wallpapers/wp_20.webp",
+  "name": "Космос",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1543722530-d2c3201371e7"
+ },
+ {
+  "file": "wallpapers/wp_21.webp",
+  "name": "Ночное небо",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1465101162946-4377e57745c3"
+ },
+ {
+  "file": "wallpapers/wp_22.webp",
+  "name": "Звёзды",
+  "group": "space",
+  "source": "https://unsplash.com/photos/photo-1506318137071-a8e063b4bec0"
  }
 ]
