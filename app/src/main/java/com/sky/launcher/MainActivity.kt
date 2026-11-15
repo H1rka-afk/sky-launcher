@@ -87,10 +87,10 @@ class MainActivity : Activity() {
         home = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false; clipToPadding = false
-            setPadding(dpi(40), dpi(14), dpi(40), dpi(12))
+            setPadding(dpi(44), dpi(12), dpi(44), dpi(10))
         }
         status = StatusBar(this) { openControlCenter() }
-        home.addView(status, LinearLayout.LayoutParams(MATCH, dpi(38)))
+        home.addView(status, LinearLayout.LayoutParams(MATCH, dpi(30)))
 
         pageHost = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         home.addView(pageHost, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = dpi(4) })
@@ -102,8 +102,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             clipChildren = false; clipToPadding = false
-            background = Ui.round(context, 34f, 0x3DFFFFFF, 0x33FFFFFF)
-            setPadding(dpi(18), dpi(12), dpi(18), dpi(12))
+            background = Ui.round(context, 26f, 0x3DFFFFFF, 0x33FFFFFF)
+            setPadding(dpi(14), dpi(9), dpi(14), dpi(9))
         }
         val dockWrap = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         dockWrap.addView(dock, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_HORIZONTAL))
@@ -294,12 +294,12 @@ class MainActivity : Activity() {
         dock.removeAllViews()
         model.dock.forEachIndexed { i, pkg ->
             val a = model.apps[pkg] ?: return@forEachIndexed
-            val t = AppTileView(this, 60, false)
+            val t = AppTileView(this, 46, false)
             t.bind(a)
             t.tag = "dock:$pkg"
             t.setOnClickListener { launch(it, a) }
             t.setOnLongClickListener { dockMenu(pkg); true }
-            dock.addView(t, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (i > 0) marginStart = dpi(22) })
+            dock.addView(t, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (i > 0) marginStart = dpi(18) })
         }
         dock.visibility = if (model.dock.isEmpty()) View.INVISIBLE else View.VISIBLE
     }

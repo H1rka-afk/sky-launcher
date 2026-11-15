@@ -62,7 +62,7 @@ object WidgetDefs {
 
 /** Базовый виджет: фокус пультом, подсветка, меню. */
 abstract class WidgetView(val act: MainActivity, val item: HomeItem) : FrameLayout(act) {
-    protected val radius = 26f
+    protected val radius = 20f
 
     init {
         isFocusable = true; isClickable = true; isLongClickable = true
@@ -87,13 +87,13 @@ abstract class WidgetView(val act: MainActivity, val item: HomeItem) : FrameLayo
 // ---------------- Часы ----------------
 
 class ClockWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val time = Ui.text(act, 50f, Color.WHITE, Ui.light)
-    private val date = Ui.text(act, 14f, 0xE6FFFFFF.toInt(), Ui.medium)
+    private val time = Ui.text(act, 38f, Color.WHITE, Ui.light)
+    private val date = Ui.text(act, 12f, 0xE6FFFFFF.toInt(), Ui.medium)
 
     init {
         glass()
-        val c = col().apply { setPadding(act.dpi(22), 0, act.dpi(22), 0) }
-        c.addView(time); c.addView(date, lp(top = 4))
+        val c = col().apply { setPadding(act.dpi(18), 0, act.dpi(18), 0) }
+        c.addView(time); c.addView(date, lp(top = 2))
         addView(c, LayoutParams(MATCH, MATCH))
         update()
     }
@@ -149,16 +149,16 @@ class AnalogClockWidget(act: MainActivity, item: HomeItem) : WidgetView(act, ite
 // ---------------- Календарь ----------------
 
 class CalendarWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val wd = Ui.text(act, 11f, Ui.RED, Ui.bold, false)
-    private val day = Ui.text(act, 40f, 0xFF1C1C1E.toInt(), Ui.light, false)
-    private val mon = Ui.text(act, 11f, 0xFF8E8E93.toInt(), Ui.medium, false)
+    private val wd = Ui.text(act, 9f, Ui.RED, Ui.bold, false)
+    private val day = Ui.text(act, 30f, 0xFF1C1C1E.toInt(), Ui.light, false)
+    private val mon = Ui.text(act, 9f, 0xFF8E8E93.toInt(), Ui.medium, false)
 
     init {
         background = Ui.round(act, radius, 0xF5FFFFFF.toInt(), 0)
         val c = col(Gravity.CENTER)
         wd.gravity = Gravity.CENTER; wd.maxLines = 1
-        wd.setAutoSizeTextTypeUniformWithConfiguration(7, 11, 1, TypedValue.COMPLEX_UNIT_SP)
-        c.addView(wd, lp(MATCH, act.dpi(14)))
+        wd.setAutoSizeTextTypeUniformWithConfiguration(6, 9, 1, TypedValue.COMPLEX_UNIT_SP)
+        c.addView(wd, lp(MATCH, act.dpi(12)))
         c.addView(day, lp(top = 2)); c.addView(mon, lp(top = 2))
         addView(c, LayoutParams(MATCH, MATCH).apply { setMargins(act.dpi(6), 0, act.dpi(6), 0) })
         update()
@@ -217,11 +217,11 @@ class MonthWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
 class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
     private val compact = item.h == 1
     private val large = item.w >= 4 && item.h >= 2
-    private val city = Ui.text(act, if (compact) 13f else 15f, Color.WHITE, Ui.medium, false)
-    private val temp = Ui.text(act, when { compact -> 40f; large -> 54f; else -> 44f }, Color.WHITE, Ui.light, false)
+    private val city = Ui.text(act, if (compact) 11f else 13f, Color.WHITE, Ui.medium, false)
+    private val temp = Ui.text(act, when { compact -> 30f; large -> 42f; else -> 34f }, Color.WHITE, Ui.light, false)
     private val icon = WeatherIconView(act)
-    private val cond = Ui.text(act, if (compact) 12f else 14f, Color.WHITE, Ui.medium, false)
-    private val range = Ui.text(act, if (compact) 12f else 14f, Color.WHITE, Ui.medium, false)
+    private val cond = Ui.text(act, if (compact) 10f else 12f, Color.WHITE, Ui.medium, false)
+    private val range = Ui.text(act, if (compact) 10f else 12f, Color.WHITE, Ui.medium, false)
     private val hoursRow = LinearLayout(act)
     private val msg = Ui.text(act, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false)
     private var shown = -1L
@@ -236,15 +236,15 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
             LinearLayout.LayoutParams(act.dpi(12), act.dpi(12)).apply { marginStart = act.dpi(5) })
         when {
             compact -> {
-                val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(act.dpi(18), act.dpi(10), act.dpi(14), act.dpi(10)) }
+                val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(act.dpi(14), act.dpi(6), act.dpi(10), act.dpi(6)) }
                 val left = col(Gravity.CENTER_VERTICAL)
                 left.addView(cityRow, lp(MATCH)); left.addView(temp, lp(top = 1))
                 val condRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-                condRow.addView(icon, LinearLayout.LayoutParams(act.dpi(16), act.dpi(16)).apply { marginEnd = act.dpi(5) })
+                condRow.addView(icon, LinearLayout.LayoutParams(act.dpi(13), act.dpi(13)).apply { marginEnd = act.dpi(4) })
                 condRow.addView(cond)
                 left.addView(condRow, lp(top = 1))
                 row.addView(left, LinearLayout.LayoutParams(0, MATCH, 1f).apply { marginEnd = act.dpi(8) })
-                row.addView(hoursRow, LinearLayout.LayoutParams(act.dpi(148), MATCH))
+                row.addView(hoursRow, LinearLayout.LayoutParams(act.dpi(124), MATCH))
                 addView(row, LayoutParams(MATCH, MATCH))
             }
             large -> {
@@ -254,7 +254,7 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
                 left.addView(cityRow); left.addView(temp, lp(top = 2))
                 top.addView(left, LinearLayout.LayoutParams(0, WRAP, 1f))
                 val right = col(Gravity.END)
-                right.addView(icon, LinearLayout.LayoutParams(act.dpi(30), act.dpi(30)))
+                right.addView(icon, LinearLayout.LayoutParams(act.dpi(24), act.dpi(24)))
                 right.addView(cond, lp(top = 6)); right.addView(range, lp(top = 3))
                 cond.gravity = Gravity.END
                 top.addView(right)
@@ -266,7 +266,7 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
                 val box = col(Gravity.TOP).apply { setPadding(act.dpi(16), act.dpi(14), act.dpi(16), act.dpi(14)) }
                 box.addView(cityRow); box.addView(temp, lp(top = 2))
                 box.addView(View(act), LinearLayout.LayoutParams(1, 0, 1f))
-                box.addView(icon, LinearLayout.LayoutParams(act.dpi(24), act.dpi(24)))
+                box.addView(icon, LinearLayout.LayoutParams(act.dpi(20), act.dpi(20)))
                 box.addView(cond, lp(MATCH, top = 4)); box.addView(range, lp(top = 2))
                 addView(box, LayoutParams(MATCH, MATCH))
             }
@@ -301,10 +301,10 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
         val n = if (compact) 4 else 6
         for (h in d.hours.take(n)) {
             val c = col(Gravity.CENTER)
-            c.addView(Ui.text(act, if (compact) 11f else 13f, Color.WHITE, Ui.medium, false).apply { text = h.label })
-            val s = act.dpi(if (compact) 20 else 26)
-            c.addView(WeatherIconView(act).apply { set(h.code, h.day) }, LinearLayout.LayoutParams(s, s).apply { topMargin = act.dpi(if (compact) 4 else 6) })
-            c.addView(Ui.text(act, if (compact) 13f else 15f, Color.WHITE, Ui.medium, false).apply { text = "${h.temp}°" }, lp(top = if (compact) 4 else 6))
+            c.addView(Ui.text(act, if (compact) 9f else 11f, Color.WHITE, Ui.medium, false).apply { text = h.label })
+            val s = act.dpi(if (compact) 16 else 20)
+            c.addView(WeatherIconView(act).apply { set(h.code, h.day) }, LinearLayout.LayoutParams(s, s).apply { topMargin = act.dpi(if (compact) 3 else 5) })
+            c.addView(Ui.text(act, if (compact) 11f else 13f, Color.WHITE, Ui.medium, false).apply { text = "${h.temp}°" }, lp(top = if (compact) 3 else 5))
             hoursRow.addView(c, LinearLayout.LayoutParams(0, MATCH, 1f))
         }
     }
@@ -325,7 +325,7 @@ class PhotoWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
     private var idx = (System.currentTimeMillis() / 60_000L % maxOf(1, photos.size)).toInt()
     private val a = ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
     private val b = ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP; alpha = 0f }
-    private val name = Ui.text(act, 14f, Color.WHITE, Ui.medium)
+    private val name = Ui.text(act, 12f, Color.WHITE, Ui.medium)
     private val next = Runnable { advance() }
 
     init {
@@ -364,7 +364,7 @@ class PhotoWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
 }
 
 class NoteWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val body = Ui.text(act, 16f, 0xFF1C1C1E.toInt(), Ui.regular, false)
+    private val body = Ui.text(act, 13f, 0xFF1C1C1E.toInt(), Ui.regular, false)
 
     init {
         background = Ui.round(act, radius, 0xFFFFFCF2.toInt(), 0)
@@ -393,10 +393,10 @@ class NoteWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
 class DeviceWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
     private class Row(ctx: Context, icon: Int) : LinearLayout(ctx) {
         val img = ImageView(ctx).apply { setImageResource(icon) }
-        val txt: TextView = Ui.text(ctx, 14f, Color.WHITE, Ui.regular)
+        val txt: TextView = Ui.text(ctx, 12f, Color.WHITE, Ui.regular)
         init {
             orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            addView(img, LayoutParams(ctx.dpi(16), ctx.dpi(16)))
+            addView(img, LayoutParams(ctx.dpi(13), ctx.dpi(13)))
             addView(txt, LayoutParams(WRAP, WRAP).apply { marginStart = ctx.dpi(10) })
         }
     }
@@ -409,7 +409,7 @@ class DeviceWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
         glass()
         val c = col().apply { setPadding(act.dpi(20), 0, act.dpi(20), 0) }
         c.addView(Ui.text(act, 11f, 0xA6FFFFFF.toInt(), Ui.medium).apply { text = "SKY OS"; letterSpacing = 0.12f })
-        c.addView(net, lp(top = 6)); c.addView(store, lp(top = 6)); c.addView(apps, lp(top = 6))
+        c.addView(net, lp(top = 3)); c.addView(store, lp(top = 3)); c.addView(apps, lp(top = 3))
         addView(c, LayoutParams(MATCH, MATCH))
         update()
     }
@@ -427,9 +427,9 @@ class DeviceWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
 
 /** Верхняя строка: время слева, значки и вход в Пункт управления справа. */
 class StatusBar(ctx: Context, onOpen: () -> Unit) : FrameLayout(ctx) {
-    private val time = Ui.text(ctx, 17f, Color.WHITE, Ui.medium)
+    private val time = Ui.text(ctx, 14f, Color.WHITE, Ui.medium)
     val pill = LinearLayout(ctx)
-    private val hint = Ui.text(ctx, 14f, Color.WHITE, Ui.medium)
+    private val hint = Ui.text(ctx, 12f, Color.WHITE, Ui.medium)
     private val wifi = ImageView(ctx)
     private val bt = ImageView(ctx)
 
@@ -444,7 +444,7 @@ class StatusBar(ctx: Context, onOpen: () -> Unit) : FrameLayout(ctx) {
         pill.addView(hint, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = ctx.dpi(12) })
         bt.setImageResource(R.drawable.ic_bt)
         val cc = ImageView(ctx).apply { setImageResource(R.drawable.ic_tune) }
-        val s = ctx.dpi(19)
+        val s = ctx.dpi(15)
         pill.addView(wifi, LinearLayout.LayoutParams(s, s))
         pill.addView(bt, LinearLayout.LayoutParams(s, s).apply { marginStart = ctx.dpi(10) })
         pill.addView(cc, LinearLayout.LayoutParams(s, s).apply { marginStart = ctx.dpi(12) })

@@ -156,6 +156,11 @@ class ScreenshotTest {
         lock2.onKeyDown(KeyEvent.KEYCODE_2, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_2)); idle(500)
         lock2.window.decorView.captureRoboImage("build/shots/15_lock_pin.png")
         Lock.setPin(null)
+        val pi = Intent(org.robolectric.RuntimeEnvironment.getApplication(), PinActivity::class.java).putExtra(LockActivity.EXTRA_MODE, "set")
+        val pin = Robolectric.buildActivity(PinActivity::class.java, pi).setup().get()
+        idle(300)
+        pin.onKeyDown(KeyEvent.KEYCODE_4, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_4)); idle(300)
+        pin.window.decorView.captureRoboImage("build/shots/16_set_pin.png")
     }
 
     /** Обновления статуса не должны сдвигать фокус. */

@@ -42,9 +42,16 @@ object Lock {
 }
 
 /** Экран блокировки в стиле iOS: дата, большие часы, погода, уведомления. */
-class LockActivity : Activity() {
+open class LockActivity : Activity() {
 
-    companion object { var visible = false }
+    companion object {
+        var visible = false
+        /** Режимы для настроек: "set" — задать новый код, "verify" — проверить текущий. */
+        const val EXTRA_MODE = "mode"
+    }
+
+    private var mode = ""
+    private var firstPin: String? = null
 
     private lateinit var wallpaper: WallpaperView
     private lateinit var main: LinearLayout
@@ -82,34 +89,34 @@ class LockActivity : Activity() {
         // --- Основной вид ---
         main = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
         main.addView(ImageView(this).apply { setImageResource(R.drawable.ic_lock); alpha = 0.9f },
-            LinearLayout.LayoutParams(dpi(26), dpi(26)).apply { topMargin = dpi(34) })
-        date = Ui.text(this, 22f, Color.WHITE, Ui.medium)
+            LinearLayout.LayoutParams(dpi(20), dpi(20)).apply { topMargin = dpi(28) })
+        date = Ui.text(this, 17f, Color.WHITE, Ui.medium)
         main.addView(date, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(14) })
-        time = Ui.text(this, 128f, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL)).apply { letterSpacing = -0.02f }
+        time = Ui.text(this, 96f, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL)).apply { letterSpacing = -0.02f }
         main.addView(time, LinearLayout.LayoutParams(W, W).apply { topMargin = -dpi(4) })
         main.addView(weatherLine(), LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(2) })
         main.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         notes = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        main.addView(notes, LinearLayout.LayoutParams(dpi(560), W))
+        main.addView(notes, LinearLayout.LayoutParams(dpi(440), W))
         hint = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-        hint.addView(Ui.text(this, 17f, Color.WHITE, Ui.medium).apply { text = "Нажмите OK, чтобы открыть" })
+        hint.addView(Ui.text(this, 14f, Color.WHITE, Ui.medium).apply { text = "Нажмите OK, чтобы открыть" })
         main.addView(hint, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(18); bottomMargin = dpi(30) })
         root.addView(main, FrameLayout.LayoutParams(M, M))
 
         // --- Ввод код-пароля ---
         pad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; visibility = View.GONE }
-        padTitle = Ui.text(this, 22f, Color.WHITE, Ui.medium)
+        padTitle = Ui.text(this, 18f, Color.WHITE, Ui.medium)
         padTitle.gravity = Gravity.CENTER
         pad.addView(padTitle, LinearLayout.LayoutParams(W, W))
         dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        pad.addView(dots, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(20); bottomMargin = dpi(26) })
+        pad.addView(dots, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(16); bottomMargin = dpi(20) })
         val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫")
         var first: View? = null
         for (r in 0 until 4) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
             for (c in 0 until 3) {
                 val k = keys[r * 3 + c]
-                val b = Ui.text(this, if (k == "⌫") 26f else 30f, Color.WHITE, Ui.regular, false).apply {
+                val b = Ui.text(this, if (k == "⌫") 20f else 24f, Color.WHITE, Ui.regular, false).apply {
                     text = k; gravity = Gravity.CENTER
                     background = if (k.isEmpty()) null else Ui.oval(this@LockActivity, 0x40FFFFFF)
                     isFocusable = k.isNotEmpty(); isClickable = k.isNotEmpty()
@@ -119,16 +126,25 @@ class LockActivity : Activity() {
                     b.setOnClickListener { if (k == "⌫") backspace() else digit(k) }
                     if (k == "5") first = b
                 }
-                row.addView(b, LinearLayout.LayoutParams(dpi(70), dpi(70)).apply { if (c > 0) marginStart = dpi(24) })
+                row.addView(b, LinearLayout.LayoutParams(dpi(54), dpi(54)).apply { if (c > 0) marginStart = dpi(20) })
             }
-            pad.addView(row, LinearLayout.LayoutParams(W, W).apply { if (r > 0) topMargin = dpi(16) })
+            pad.addView(row, LinearLayout.LayoutParams(W, W).apply { if (r > 0) topMargin = dpi(12) })
         }
-        pad.addView(Ui.text(this, 14f, 0xB3FFFFFF.toInt(), Ui.regular).apply { text = "Можно вводить цифры кнопками пульта · Назад — отмена" },
+        pad.addView(Ui.text(this, 12f, 0xB3FFFFFF.toInt(), Ui.regular).apply { text = "Можно вводить цифры кнопками пульта · Назад — отмена" },
             LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(24) })
         padFirst = first
         root.addView(pad, FrameLayout.LayoutParams(M, M))
         setContentView(root)
         root.isFocusable = true
+
+        mode = intent.getStringExtra(EXTRA_MODE) ?: ""
+        if (mode.isNotEmpty()) {
+            main.visibility = View.GONE
+            pad.visibility = View.VISIBLE
+            padTitle.text = if (mode == "set") "Новый код-пароль" else "Введите текущий код-пароль"
+            updateDots()
+            pad.post { padFirst?.requestFocus() }
+        }
     }
 
     private var padFirst: View? = null
@@ -136,8 +152,8 @@ class LockActivity : Activity() {
     private fun weatherLine(): View {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val d = WeatherData.data ?: return row
-        row.addView(WeatherIconView(this).apply { set(d.code, d.day) }, LinearLayout.LayoutParams(dpi(24), dpi(24)))
-        row.addView(Ui.text(this, 19f, Color.WHITE, Ui.medium).apply {
+        row.addView(WeatherIconView(this).apply { set(d.code, d.day) }, LinearLayout.LayoutParams(dpi(18), dpi(18)))
+        row.addView(Ui.text(this, 15f, Color.WHITE, Ui.medium).apply {
             text = "${d.temp}°  ${WeatherData.desc(d.code)} · ${WeatherData.city(this@LockActivity)}"
         }, LinearLayout.LayoutParams(W, W).apply { marginStart = dpi(10) })
         return row
@@ -147,7 +163,7 @@ class LockActivity : Activity() {
         notes.removeAllViews()
         val items = ArrayList<Notify.Item>()
         if (!Lock.hasPin() && Prefs.pinReminder) items += Notify.Item(packageName, "Sky OS", "Установите код-пароль",
-            "Защитите Sky OS паролем: Настройки → Код-пароль", IconFactory.logo(dpi(42)), System.currentTimeMillis())
+            "Защитите Sky OS паролем: Настройки → Код-пароль", IconFactory.logo(dpi(34)), System.currentTimeMillis())
         items += Notify.history.take(3)
         items.take(3).forEachIndexed { i, it ->
             notes.addView(Notify.card(this, it, translucent = true), LinearLayout.LayoutParams(M, W).apply { if (i > 0) topMargin = dpi(10) })
@@ -156,8 +172,7 @@ class LockActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        visible = true
-        Lock.locked = true
+        if (mode.isEmpty()) { visible = true; Lock.locked = true }
         handler.post(tick)
         wallpaper.start()
         renderNotes()
@@ -193,7 +208,7 @@ class LockActivity : Activity() {
         dots.removeAllViews()
         for (i in 0 until 4) dots.addView(View(this).apply {
             background = Ui.oval(this@LockActivity, if (i < entered.length) Color.WHITE else 0, Color.WHITE, 1.5f)
-        }, LinearLayout.LayoutParams(dpi(16), dpi(16)).apply { if (i > 0) marginStart = dpi(22) })
+        }, LinearLayout.LayoutParams(dpi(12), dpi(12)).apply { if (i > 0) marginStart = dpi(18) })
     }
 
     private fun digit(d: String) {
@@ -206,7 +221,28 @@ class LockActivity : Activity() {
 
     private fun backspace() { if (entered.isNotEmpty()) { entered.setLength(entered.length - 1); updateDots() } }
 
+    private fun shake() {
+        dots.animate().translationX(dp(18f)).setInterpolator(CycleInterpolator(3f)).setDuration(400)
+            .withEndAction { dots.translationX = 0f; updateDots() }.start()
+    }
+
     private fun verify() {
+        val pin = entered.toString()
+        if (mode == "set") {
+            entered.clear()
+            val f = firstPin
+            when {
+                f == null -> { firstPin = pin; padTitle.text = "Повторите код-пароль"; updateDots() }
+                f == pin -> { Lock.setPin(pin); setResult(RESULT_OK); finish() }
+                else -> { firstPin = null; padTitle.text = "Коды не совпали. Новый код-пароль"; shake() }
+            }
+            return
+        }
+        if (mode == "verify") {
+            entered.clear()
+            if (Lock.check(pin)) { setResult(RESULT_OK); finish() } else { padTitle.text = "Неверный код-пароль"; shake() }
+            return
+        }
         if (Lock.check(entered.toString())) { unlock(); return }
         fails++
         entered.clear()
@@ -240,11 +276,14 @@ class LockActivity : Activity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val padOn = pad.visibility == View.VISIBLE
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
-            if (!Lock.hasPin()) { unlock(); return true }
+            if (mode.isEmpty() && !Lock.hasPin()) { unlock(); return true }
             if (!padOn) showPad()
             digit((keyCode - KeyEvent.KEYCODE_0).toString()); return true
         }
         if (keyCode == KeyEvent.KEYCODE_DEL && padOn) { backspace(); return true }
+        if ((keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) && mode.isNotEmpty()) {
+            setResult(RESULT_CANCELED); finish(); return true
+        }
         if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
             if (padOn) hidePad() else if (!Lock.hasPin()) unlock()
             return true
@@ -257,3 +296,6 @@ class LockActivity : Activity() {
         return super.onKeyDown(keyCode, event)
     }
 }
+
+/** Ввод код-пароля из настроек (обычное окно, чтобы вернуть результат). */
+class PinActivity : LockActivity()

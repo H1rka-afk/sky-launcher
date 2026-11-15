@@ -60,7 +60,7 @@ object Notify {
         when {
             host != null && host.isAttachedToWindow -> {
                 val v = banner(host.context, item)
-                host.addView(v, FrameLayout.LayoutParams(host.context.dpi(540), FrameLayout.LayoutParams.WRAP_CONTENT,
+                host.addView(v, FrameLayout.LayoutParams(host.context.dpi(430), FrameLayout.LayoutParams.WRAP_CONTENT,
                     Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = host.context.dpi(18) })
                 animate(v) { host.removeView(v); next(app) }
             }
@@ -68,7 +68,7 @@ object Notify {
                 val wm = svc.getSystemService(Context.WINDOW_SERVICE) as WindowManager
                 val v = banner(svc, item)
                 val lp = WindowManager.LayoutParams(
-                    svc.dpi(540), WindowManager.LayoutParams.WRAP_CONTENT,
+                    svc.dpi(430), WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -102,23 +102,23 @@ object Notify {
     fun card(ctx: Context, item: Item, translucent: Boolean = false): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        background = Ui.round(ctx, 24f, if (translucent) 0x99242426.toInt() else 0xF22C2C2E.toInt(), 0x24FFFFFF)
-        setPadding(ctx.dpi(14), ctx.dpi(12), ctx.dpi(18), ctx.dpi(12))
-        addView(ImageView(ctx).apply { setImageBitmap(item.icon) }, LinearLayout.LayoutParams(ctx.dpi(42), ctx.dpi(42)))
+        background = Ui.round(ctx, 20f, if (translucent) 0x99242426.toInt() else 0xF22C2C2E.toInt(), 0x24FFFFFF)
+        setPadding(ctx.dpi(11), ctx.dpi(9), ctx.dpi(14), ctx.dpi(9))
+        addView(ImageView(ctx).apply { setImageBitmap(item.icon) }, LinearLayout.LayoutParams(ctx.dpi(34), ctx.dpi(34)))
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         val head = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-        head.addView(Ui.text(ctx, 12f, 0xB3FFFFFF.toInt(), Ui.medium, false).apply {
+        head.addView(Ui.text(ctx, 10f, 0xB3FFFFFF.toInt(), Ui.medium, false).apply {
             text = item.app.uppercase(); maxLines = 1; ellipsize = TextUtils.TruncateAt.END; letterSpacing = 0.04f
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        head.addView(Ui.text(ctx, 12f, 0x99FFFFFF.toInt(), Ui.regular, false).apply { text = ago(item.time) })
+        head.addView(Ui.text(ctx, 10f, 0x99FFFFFF.toInt(), Ui.regular, false).apply { text = ago(item.time) })
         col.addView(head)
-        if (item.title.isNotBlank()) col.addView(Ui.text(ctx, 15f, Color.WHITE, Ui.bold, false).apply {
+        if (item.title.isNotBlank()) col.addView(Ui.text(ctx, 13f, Color.WHITE, Ui.bold, false).apply {
             text = item.title; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(2) })
-        if (item.text.isNotBlank()) col.addView(Ui.text(ctx, 14f, 0xE6FFFFFF.toInt(), Ui.regular, false).apply {
+        if (item.text.isNotBlank()) col.addView(Ui.text(ctx, 12f, 0xE6FFFFFF.toInt(), Ui.regular, false).apply {
             text = item.text; maxLines = 2; ellipsize = TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(1) })
-        addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = ctx.dpi(14) })
+        addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = ctx.dpi(11) })
     }
 
     private fun banner(ctx: Context, item: Item) = card(ctx, item)

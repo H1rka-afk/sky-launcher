@@ -75,10 +75,10 @@ class AppRepository(ctx: Context) {
 }
 
 /** Плитка приложения: иконка-сквиркл + подпись. */
-class AppTileView(ctx: Context, private val iconDp: Int = 72, showLabel: Boolean = Prefs.labels) : LinearLayout(ctx) {
+class AppTileView(ctx: Context, private val iconDp: Int = 54, showLabel: Boolean = Prefs.labels) : LinearLayout(ctx) {
     val icon = ImageView(ctx)
-    private val label = Ui.text(ctx, 13f)
-    private val badge = Ui.text(ctx, 13f, android.graphics.Color.WHITE, Ui.bold, false).apply {
+    private val label = Ui.text(ctx, 11f)
+    private val badge = Ui.text(ctx, 11f, android.graphics.Color.WHITE, Ui.bold, false).apply {
         gravity = Gravity.CENTER; background = Ui.oval(ctx, Ui.RED); elevation = ctx.dp(8f)
     }
 
@@ -103,14 +103,14 @@ class AppTileView(ctx: Context, private val iconDp: Int = 72, showLabel: Boolean
         val frame = android.widget.FrameLayout(ctx).apply { clipChildren = false; clipToPadding = false }
         frame.addView(icon, android.widget.FrameLayout.LayoutParams(s, s))
         badge.visibility = View.GONE
-        frame.addView(badge, android.widget.FrameLayout.LayoutParams(ctx.dpi(24), ctx.dpi(24), Gravity.TOP or Gravity.END)
-            .apply { topMargin = -ctx.dpi(7); marginEnd = -ctx.dpi(7) })
+        frame.addView(badge, android.widget.FrameLayout.LayoutParams(ctx.dpi(18), ctx.dpi(18), Gravity.TOP or Gravity.END)
+            .apply { topMargin = -ctx.dpi(5); marginEnd = -ctx.dpi(5) })
         addView(frame, LayoutParams(s, s))
         if (showLabel) {
             label.gravity = Gravity.CENTER
             label.maxLines = 1
             label.ellipsize = TextUtils.TruncateAt.END
-            addView(label, LayoutParams(ctx.dpi(iconDp + 30), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(8) })
+            addView(label, LayoutParams(ctx.dpi(iconDp + 30), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dpi(6) })
         }
         Ui.zoomOnFocus(this, 1.15f) { f -> label.typeface = if (f) Ui.medium else Ui.regular }
     }

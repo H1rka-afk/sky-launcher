@@ -383,18 +383,25 @@ class SettingsActivity : Activity() {
 
     private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
 
-    private fun askPin(title: String, ok: () -> Unit) {
-        input(title, "", password = true, digits = true) { pin ->
-            if (Lock.check(pin)) ok() else toast("Неверный код-пароль")
-        }
+    // Ввод код-пароля — та же клавиатура с кружками, что и на экране блокировки
+    private var afterPin: (() -> Unit)? = null
+
+    private fun askPin(@Suppress("UNUSED_PARAMETER") title: String, ok: () -> Unit) {
+        afterPin = ok
+        startActivityForResult(Intent(this, PinActivity::class.java).putExtra(LockActivity.EXTRA_MODE, "verify"), 31)
     }
 
     private fun askNewPin() {
-        input("Новый код-пароль (4 цифры)", "", password = true, digits = true) { a ->
-            if (a.length != 4 || a.any { !it.isDigit() }) { toast("Нужно ровно 4 цифры"); return@input }
-            input("Повторите код-пароль", "", password = true, digits = true) { b ->
-                if (a == b) { Lock.setPin(a); toast("Код-пароль установлен"); rebuild() } else toast("Коды не совпадают")
-            }
+        startActivityForResult(Intent(this, PinActivity::class.java).putExtra(LockActivity.EXTRA_MODE, "set"), 32)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        when (requestCode) {
+            31 -> { val f = afterPin; afterPin = null; f?.invoke() }
+            32 -> { toast("Код-пароль установлен"); rebuild() }
         }
     }
 

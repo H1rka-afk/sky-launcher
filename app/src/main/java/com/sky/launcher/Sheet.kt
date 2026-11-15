@@ -91,8 +91,8 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
         isFocusable = true; isClickable = true
         setPadding(act.dpi(18), 0, act.dpi(18), 0)
         if (icon != 0) addView(ImageView(act).apply { setImageResource(icon); setColorFilter(color) },
-            LinearLayout.LayoutParams(act.dpi(22), act.dpi(22)).apply { marginEnd = act.dpi(14) })
-        addView(Ui.text(act, 17f, color, if (bold) Ui.medium else Ui.regular, false).apply {
+            LinearLayout.LayoutParams(act.dpi(18), act.dpi(18)).apply { marginEnd = act.dpi(12) })
+        addView(Ui.text(act, 15f, color, if (bold) Ui.medium else Ui.regular, false).apply {
             text = label; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         })
         setOnFocusChangeListener { v, f -> v.background = if (f) Ui.round(act, 16f, 0x33FFFFFF, 0) else null }
@@ -100,25 +100,25 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
 
     fun showList(title: String, items: List<SheetItem>) {
         val b = box(10, 16)
-        b.addView(Ui.text(act, 14f, 0x99FFFFFF.toInt(), Ui.medium, false).apply { text = title; gravity = Gravity.CENTER },
+        b.addView(Ui.text(act, 12f, 0x99FFFFFF.toInt(), Ui.medium, false).apply { text = title; gravity = Gravity.CENTER },
             LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = act.dpi(10); marginStart = act.dpi(12); marginEnd = act.dpi(12) })
         val list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
         var first: View? = null
         items.forEach { item ->
             val r = row(item.label, item.icon, if (item.destructive) Ui.RED else Color.WHITE, false, false)
             r.setOnClickListener { hide { item.action() } }
-            list.addView(r, LinearLayout.LayoutParams(MATCH, act.dpi(54)))
+            list.addView(r, LinearLayout.LayoutParams(MATCH, act.dpi(44)))
             if (first == null) first = r
         }
         if (items.size > 6) {
             val sv = ScrollView(act).apply { isVerticalScrollBarEnabled = false; isFillViewport = true }
             sv.addView(list)
-            b.addView(sv, LinearLayout.LayoutParams(MATCH, act.dpi(54 * 6)))
+            b.addView(sv, LinearLayout.LayoutParams(MATCH, act.dpi(44 * 6)))
         } else b.addView(list)
         val cancel = row("Отмена", 0, Ui.BLUE, true, true)
         cancel.setOnClickListener { hide() }
-        b.addView(cancel, LinearLayout.LayoutParams(MATCH, act.dpi(54)).apply { topMargin = act.dpi(6) })
-        present(b, LayoutParams(act.dpi(460), WRAP, Gravity.CENTER), first ?: cancel)
+        b.addView(cancel, LinearLayout.LayoutParams(MATCH, act.dpi(44)).apply { topMargin = act.dpi(4) })
+        present(b, LayoutParams(act.dpi(380), WRAP, Gravity.CENTER), first ?: cancel)
     }
 
     /** Ввод текста (название, заметка, пароль, город). */
@@ -217,7 +217,7 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             clipChildren = false; clipToPadding = false
         }
-        b.addView(Ui.text(act, 30f, Color.WHITE, Ui.medium).apply { text = folder.name ?: "Папка" },
+        b.addView(Ui.text(act, 24f, Color.WHITE, Ui.medium).apply { text = folder.name ?: "Папка" },
             LinearLayout.LayoutParams(WRAP, WRAP).apply { bottomMargin = act.dpi(22) })
         val panel = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false
@@ -233,11 +233,11 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
                 row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
                 panel.addView(row, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (i > 0) topMargin = act.dpi(10) })
             }
-            val t = AppTileView(act, 72, true)
+            val t = AppTileView(act, 54, true)
             t.bind(a, act.model.label(pkg))
             t.setOnClickListener { v -> hide { act.launchPkg(pkg) } }
             t.setOnLongClickListener { hide { act.folderAppMenu(folder, pkg) }; true }
-            row!!.addView(t, LinearLayout.LayoutParams(act.dpi(116), WRAP))
+            row!!.addView(t, LinearLayout.LayoutParams(act.dpi(96), WRAP))
             if (first == null) first = t
         }
         b.addView(panel)

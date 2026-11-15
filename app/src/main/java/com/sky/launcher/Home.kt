@@ -7,8 +7,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-const val COLS = 8
-const val ROWS = 3
+const val COLS = 10
+const val ROWS = 4
 
 /** Элемент главного экрана: приложение или виджет, занимает w×h ячеек. */
 class HomeItem(
@@ -50,7 +50,7 @@ class HomeModel private constructor(ctx: Context) {
 
     companion object {
         const val DOCK_MAX = 5
-        private const val LAYOUT_VER = 4
+        private const val LAYOUT_VER = 5
         private var inst: HomeModel? = null
         fun get(ctx: Context): HomeModel = inst ?: HomeModel(ctx.applicationContext).also { inst = it }
     }
@@ -226,7 +226,7 @@ class HomeModel private constructor(ctx: Context) {
 class PageView(ctx: Context) : ViewGroup(ctx) {
     class LP(val item: HomeItem) : ViewGroup.LayoutParams(0, 0)
 
-    private val gap = ctx.dpi(8)
+    private val gap = ctx.dpi(6)
 
     init { clipChildren = false; clipToPadding = false }
 

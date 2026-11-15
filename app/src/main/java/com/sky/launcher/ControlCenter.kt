@@ -30,7 +30,7 @@ class RoundToggle(ctx: Context, icon: Int, private val onColor: Int) : FrameLayo
     init {
         isFocusable = true; isClickable = true
         img.setImageResource(icon)
-        addView(img, LayoutParams(ctx.dpi(28), ctx.dpi(28), Gravity.CENTER))
+        addView(img, LayoutParams(ctx.dpi(22), ctx.dpi(22), Gravity.CENTER))
         Ui.zoomOnFocus(this, 1.14f) { f -> paint(); if (f) onFocused?.invoke() }
         paint()
     }
@@ -47,7 +47,7 @@ class CcTile(ctx: Context, icon: Int, bitmap: android.graphics.Bitmap? = null) :
     init {
         isFocusable = true; isClickable = true
         val img = ImageView(ctx).apply { if (bitmap != null) setImageBitmap(bitmap) else setImageResource(icon) }
-        val sz = ctx.dpi(if (bitmap != null) 44 else 30)
+        val sz = ctx.dpi(if (bitmap != null) 36 else 24)
         addView(img, LayoutParams(sz, sz, Gravity.CENTER))
         background = Ui.round(ctx, 24f, Ui.GLASS)
         Ui.zoomOnFocus(this, 1.08f) { f ->
@@ -118,11 +118,11 @@ class VolumeSlider(ctx: Context) : View(ctx) {
 class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
     private val scrim = View(act)
     private val panel = LinearLayout(act)
-    private val caption = Ui.text(act, 15f, Color.WHITE, Ui.medium)
-    private val bigTime = Ui.text(act, 48f, Color.WHITE, Ui.light)
-    private val bigDate = Ui.text(act, 15f, 0xD9FFFFFF.toInt(), Ui.medium)
-    private val u = act.dpi(80)
-    private val g = act.dpi(14)
+    private val caption = Ui.text(act, 13f, Color.WHITE, Ui.medium)
+    private val bigTime = Ui.text(act, 36f, Color.WHITE, Ui.light)
+    private val bigDate = Ui.text(act, 13f, 0xD9FFFFFF.toInt(), Ui.medium)
+    private val u = act.dpi(62)
+    private val g = act.dpi(11)
 
     private val wifiB = RoundToggle(act, R.drawable.ic_wifi, Ui.BLUE)
     private val btB = RoundToggle(act, R.drawable.ic_bt, Ui.BLUE)
@@ -161,7 +161,7 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; clipChildren = false
             background = Ui.round(act, 32f, Ui.GLASS)
         }
-        val ts = act.dpi(62)
+        val ts = act.dpi(48)
         fun pair(a: View, b: View) = LinearLayout(act).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; clipChildren = false
             addView(a, LinearLayout.LayoutParams(ts, ts))
