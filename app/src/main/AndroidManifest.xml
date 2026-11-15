@@ -83,6 +83,12 @@
 
         <receiver android:name=".InstallReceiver" android:exported="false" />
 
+        <provider
+            android:name=".UpdateProvider"
+            android:authorities="com.sky.launcher.update"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <receiver
             android:name=".AdminReceiver"
             android:exported="true"

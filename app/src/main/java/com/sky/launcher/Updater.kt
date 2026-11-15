@@ -31,6 +31,17 @@ object Updater {
         private set
     var progress = -1   // -1 — не скачивается, 0..100 — процент
         private set
+    private var installAfterDownload = false
+
+    fun apkFile(ctx: Context) = File(ctx.cacheDir, "update.apk")
+
+    /** Обновление уже скачано в фоне — установка начнётся мгновенно. */
+    fun ready(ctx: Context): Boolean {
+        val a = available ?: return false
+        val f = apkFile(ctx)
+        return f.exists() && f.length() > 0 &&
+            ctx.getSharedPreferences("skyos_settings", Context.MODE_PRIVATE).getInt("update_ready_code", 0) == a.code
+    }
 
     private val main = Handler(Looper.getMainLooper())
 
@@ -77,6 +88,8 @@ object Updater {
                     available = if (info.code > currentCode(app)) info else null
                     if (manual && available == null) Toast.makeText(app, "Установлена последняя версия Sky OS", Toast.LENGTH_SHORT).show()
                     onChange?.invoke()
+                    // заранее скачиваем в фоне, чтобы установка была мгновенной
+                    if (available != null && Prefs.autoUpdate && !ready(app)) download(app, install = false)
                 }
             } catch (e: Exception) {
                 main.post {
@@ -96,18 +109,26 @@ object Updater {
     }
 
     fun downloadAndInstall(ctx: Context) {
+        if (ready(ctx)) { install(ctx.applicationContext, apkFile(ctx)); return }
+        if (progress >= 0) { installAfterDownload = true; return }   // уже качается в фоне — установим сразу после
+        download(ctx, install = true)
+    }
+
+    private fun download(ctx: Context, install: Boolean) {
         val info = available ?: return
         if (progress >= 0) return
+        installAfterDownload = install
         progress = 0; onChange?.invoke()
         val app = ctx.applicationContext
         Thread {
             try {
-                val file = File(app.cacheDir, "update.apk")
+                val file = apkFile(app)
+                val part = File(app.cacheDir, "update.part")
                 val c = open(info.url)
                 val total = c.contentLength.toLong()
                 c.inputStream.use { inp ->
-                    file.outputStream().use { out ->
-                        val buf = ByteArray(64 * 1024)
+                    java.io.BufferedOutputStream(part.outputStream(), 256 * 1024).use { out ->
+                        val buf = ByteArray(256 * 1024)
                         var done = 0L; var last = -1
                         while (true) {
                             val n = inp.read(buf); if (n < 0) break
@@ -118,19 +139,43 @@ object Updater {
                     }
                 }
                 c.disconnect()
-                install(app, file)
-                main.post { progress = -1; onChange?.invoke() }
+                file.delete(); part.renameTo(file)
+                app.getSharedPreferences("skyos_settings", Context.MODE_PRIVATE).edit().putInt("update_ready_code", info.code).apply()
+                main.post {
+                    progress = -1
+                    onChange?.invoke()
+                    if (installAfterDownload) install(app, file)
+                    else Notify.post(app, "Обновление Sky OS ${info.name} готово", "Настройки → Обновление ПО → «Установить»", keep = false)
+                    installAfterDownload = false
+                }
             } catch (e: Exception) {
                 main.post {
                     progress = -1; lastError = e.message ?: e.javaClass.simpleName
-                    Toast.makeText(app, "Ошибка загрузки: $lastError", Toast.LENGTH_LONG).show()
+                    if (installAfterDownload) Toast.makeText(app, "Ошибка загрузки: $lastError", Toast.LENGTH_LONG).show()
+                    installAfterDownload = false
                     onChange?.invoke()
                 }
             }
         }.start()
     }
 
+    /**
+     * Мгновенно открывает окно установки Android (файл отдаётся через свой ContentProvider).
+     * Если это не сработало — старый способ через PackageInstaller.
+     */
     private fun install(ctx: Context, file: File) {
+        try {
+            val uri = android.net.Uri.parse("content://${ctx.packageName}.update/update.apk")
+            @Suppress("DEPRECATION")
+            val i = Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i)
+            return
+        } catch (e: Exception) {}
+        sessionInstall(ctx, file)
+    }
+
+    private fun sessionInstall(ctx: Context, file: File) {
         val pi = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(ctx.packageName)
@@ -164,4 +209,20 @@ class InstallReceiver : BroadcastReceiver() {
             }
         }
     }
+}
+
+/** Отдаёт скачанный APK системному установщику. */
+class UpdateProvider : android.content.ContentProvider() {
+    override fun onCreate() = true
+    override fun getType(uri: android.net.Uri) = "application/vnd.android.package-archive"
+    override fun openFile(uri: android.net.Uri, mode: String): android.os.ParcelFileDescriptor =
+        android.os.ParcelFileDescriptor.open(Updater.apkFile(context!!), android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+    override fun query(uri: android.net.Uri, p: Array<out String>?, s: String?, a: Array<out String>?, o: String?): android.database.Cursor? {
+        val f = Updater.apkFile(context!!)
+        return android.database.MatrixCursor(arrayOf(android.provider.OpenableColumns.DISPLAY_NAME, android.provider.OpenableColumns.SIZE))
+            .apply { addRow(arrayOf<Any>("SkyOS.apk", f.length())) }
+    }
+    override fun insert(uri: android.net.Uri, v: android.content.ContentValues?): android.net.Uri? = null
+    override fun delete(uri: android.net.Uri, s: String?, a: Array<out String>?) = 0
+    override fun update(uri: android.net.Uri, v: android.content.ContentValues?, s: String?, a: Array<out String>?) = 0
 }

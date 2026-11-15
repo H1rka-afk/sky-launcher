@@ -568,6 +568,7 @@ class SettingsActivity : Activity() {
         updTitle?.text = if (a != null) "Sky OS ${a.name}" else "Sky OS ${Updater.currentName(this)}"
         updSub?.text = when {
             Updater.checking -> "Проверка обновлений…"
+            a != null && Updater.ready(this) -> "Загружено — готово к установке"
             a != null -> "Доступно обновление"
             Updater.lastError != null -> "Не удалось проверить: ${Updater.lastError}"
             else -> "Установлена последняя версия"
@@ -577,6 +578,7 @@ class SettingsActivity : Activity() {
         updAction?.text = when {
             p >= 0 -> "Загрузка… $p%"
             Updater.checking -> "Проверка…"
+            a != null && Updater.ready(this) -> "Установить"
             a != null -> "Загрузить и установить"
             else -> "Проверить обновления"
         }

@@ -224,6 +224,17 @@ class ScreenshotTest {
         SkyDrop.stop()
     }
 
+    /** Установщик получает скачанный APK через наш ContentProvider. */
+    @Test
+    fun updateProvider() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        Updater.apkFile(app).writeBytes(ByteArray(12345) { 7 })
+        Robolectric.setupContentProvider(UpdateProvider::class.java, "com.sky.launcher.update")
+        val n = app.contentResolver.openInputStream(android.net.Uri.parse("content://com.sky.launcher.update/update.apk"))!!.use { it.readBytes().size }
+        println("UPDATE PROVIDER BYTES: $n")
+        org.junit.Assert.assertEquals(12345, n)
+    }
+
     /** Обновления статуса не должны сдвигать фокус. */
     @Test
     fun updateFocusStable() {
