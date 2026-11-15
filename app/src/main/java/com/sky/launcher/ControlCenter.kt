@@ -402,6 +402,7 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
             "bt_devices" -> act.safeStart(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
             "accessibility" -> act.safeStart(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             "widget" -> { hide(); act.widgetPicker() }
+            "drop" -> { hide(); act.openSettings("drop") }
         }
     }
 
@@ -467,6 +468,7 @@ object CcTiles {
         TileDef("bt_devices", "Устройства Bluetooth", R.drawable.ic_bt),
         TileDef("accessibility", "Спец. возможности", R.drawable.ic_info),
         TileDef("widget", "Добавить виджет", R.drawable.ic_add),
+        TileDef("drop", "Sky Drop — принять с iPhone", R.drawable.ic_input),
     )
     fun get(id: String) = all.firstOrNull { it.id == id }
 }

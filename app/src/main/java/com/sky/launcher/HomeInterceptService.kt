@@ -36,6 +36,7 @@ class HomeInterceptService : AccessibilityService() {
             .filter { it != packageName && it != "com.android.settings" && it != "com.android.tv.settings" }
             .toSet()
         try { registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON)) } catch (e: Exception) {}
+        SkyDrop.start(this)
         openLauncher()
     }
 

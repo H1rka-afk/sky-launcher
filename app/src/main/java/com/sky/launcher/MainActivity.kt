@@ -77,6 +77,7 @@ class MainActivity : Activity() {
         Prefs.init(this)
         repo = AppRepository(this)
         model = HomeModel.get(this)
+        SkyDrop.start(this)
         Wallpapers.load(this)
         WeatherData.onUpdate = { updateWidgets() }
 

@@ -37,6 +37,8 @@ android {
 }
 
 dependencies {
+    implementation("org.nanohttpd:nanohttpd:2.3.1")       // Sky Drop: приём файлов с iPhone
+    implementation("com.google.zxing:core:3.5.3")         // QR-код для подключения
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")

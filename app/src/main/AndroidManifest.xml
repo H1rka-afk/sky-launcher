@@ -63,6 +63,24 @@
             android:theme="@style/LauncherTheme"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode" />
 
+        <activity
+            android:name=".DropActivity"
+            android:exported="false"
+            android:taskAffinity="com.sky.launcher.drop"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/SkyTranslucent"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode" />
+
+        <activity
+            android:name=".ViewerActivity"
+            android:exported="false"
+            android:taskAffinity="com.sky.launcher.drop"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:theme="@style/LauncherTheme"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode" />
+
         <receiver android:name=".InstallReceiver" android:exported="false" />
 
         <receiver

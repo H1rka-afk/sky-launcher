@@ -163,6 +163,67 @@ class ScreenshotTest {
         pin.window.decorView.captureRoboImage("build/shots/16_set_pin.png")
     }
 
+    /** Sky Drop: настоящая отправка фото на сервер ТВ, окно «Принять» и просмотр. */
+    @Test
+    fun skyDrop() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        Prefs.init(app)
+        SkyDrop.start(app)
+        idle(300)
+        // тестовое «фото с iPhone»
+        val bmp = android.graphics.Bitmap.createBitmap(1200, 800, android.graphics.Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(bmp).apply {
+            drawColor(0xFF0A84FF.toInt())
+            drawCircle(600f, 400f, 250f, Paint().apply { color = 0xFFFFD60A.toInt() })
+        }
+        val jpg = java.io.ByteArrayOutputStream().also { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
+        val boundary = "----skytest"
+        val body = java.io.ByteArrayOutputStream().apply {
+            write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"IMG_0042.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray())
+            write(jpg)
+            write("\r\n--$boundary--\r\n".toByteArray())
+        }.toByteArray()
+        var result = ""
+        val t = Thread {
+            try {
+                val c = java.net.URL("http://127.0.0.1:${SkyDrop.PORT}/send?k=${Prefs.dropKey}").openConnection() as java.net.HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true
+                c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")
+                c.outputStream.use { it.write(body) }
+                result = "${c.responseCode} " + c.inputStream.bufferedReader().readText()
+            } catch (e: Exception) { result = "ERR ${e.message}" }
+        }
+        t.start(); t.join(15000)
+        idle(300)
+        println("SKYDROP UPLOAD: $result; pending=${SkyDrop.pending.keys}")
+        // без ключа — отказ
+        var denied = ""
+        Thread { try {
+            val c = java.net.URL("http://127.0.0.1:${SkyDrop.PORT}/send?k=wrong").openConnection() as java.net.HttpURLConnection
+            c.requestMethod = "POST"; c.doOutput = true; c.outputStream.use { it.write("text=hi".toByteArray()) }
+            denied = c.responseCode.toString()
+        } catch (e: Exception) { denied = "ERR ${e.message}" } }.apply { start(); join(10000) }
+        println("SKYDROP WRONG KEY: $denied")
+        org.junit.Assert.assertTrue(result.startsWith("200"))
+        org.junit.Assert.assertEquals("403", denied)
+
+        val id = SkyDrop.pending.keys.first()
+        val d = Robolectric.buildActivity(DropActivity::class.java, Intent(app, DropActivity::class.java).putExtra("batch", id)).setup().get()
+        idle(500)
+        d.window.decorView.captureRoboImage("build/shots/17_drop_prompt.png")
+        SkyDrop.accept(app, id)
+        val v = Robolectric.buildActivity(ViewerActivity::class.java).setup().get()
+        idle(500)
+        v.window.decorView.captureRoboImage("build/shots/18_drop_viewer.png")
+
+        val st = Robolectric.buildActivity(SettingsActivity::class.java, Intent(app, SettingsActivity::class.java)
+            .putExtra(SettingsActivity.EXTRA_SECTION, "drop")).setup().get()
+        idle(500)
+        st.window.decorView.captureRoboImage("build/shots/s_drop.png")
+        SkyDrop.stop()
+    }
+
     /** Обновления статуса не должны сдвигать фокус. */
     @Test
     fun updateFocusStable() {

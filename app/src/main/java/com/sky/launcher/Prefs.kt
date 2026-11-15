@@ -57,4 +57,17 @@ object Prefs {
     var appNotifications: Boolean
         get() = p.getBoolean("app_notifications", true)
         set(v) = p.edit().putBoolean("app_notifications", v).apply()
+
+    // ---- Sky Drop ----
+    var dropEnabled: Boolean
+        get() = p.getBoolean("drop_enabled", true)
+        set(v) = p.edit().putBoolean("drop_enabled", v).apply()
+
+    var dropAutoAccept: Boolean
+        get() = p.getBoolean("drop_auto", false)
+        set(v) = p.edit().putBoolean("drop_auto", v).apply()
+
+    val dropKey: String
+        get() = p.getString("drop_key", null) ?: (1..8).map { "abcdefghjkmnpqrstuvwxyz23456789".random() }.joinToString("")
+            .also { p.edit().putString("drop_key", it).apply() }
 }

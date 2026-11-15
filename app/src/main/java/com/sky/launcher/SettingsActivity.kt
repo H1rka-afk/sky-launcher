@@ -64,6 +64,7 @@ class SettingsActivity : Activity() {
     private val sections = listOf(
         Section("about", "Об этой системе", R.drawable.ic_info, Ui.BLUE),
         Section("update", "Обновление ПО", R.drawable.ic_refresh, 0xFF8E8E93.toInt()),
+        Section("drop", "Sky Drop", R.drawable.ic_input, 0xFF0A84FF.toInt()),
         Section("passcode", "Код-пароль", R.drawable.ic_lock, Ui.RED),
         Section("notify", "Уведомления", R.drawable.ic_info, 0xFFFF3B30.toInt()),
         Section("wallpaper", "Обои", R.drawable.ic_image, 0xFF32ADE6.toInt()),
@@ -183,7 +184,7 @@ class SettingsActivity : Activity() {
         card.addView(t, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(14) })
         sidebar.addView(card, LinearLayout.LayoutParams(M, W).apply { bottomMargin = dpi(18) })
 
-        val groups = listOf(listOf("about", "update"), listOf("passcode", "notify"), listOf("wallpaper", "home", "cc", "weather"),
+        val groups = listOf(listOf("about", "update"), listOf("drop", "passcode", "notify"), listOf("wallpaper", "home", "cc", "weather"),
             listOf("wifi", "bluetooth", "display", "access"), listOf("tv"))
         for (g in groups) {
             val box = group(sidebar)
@@ -341,6 +342,7 @@ class SettingsActivity : Activity() {
         when (id) {
             "about" -> about()
             "passcode" -> passcode()
+            "drop" -> drop()
             "notify" -> notifications()
             "update" -> update()
             "wallpaper" -> wallpaper()
@@ -351,6 +353,72 @@ class SettingsActivity : Activity() {
             "bluetooth" -> bluetooth()
             "display" -> display()
             "access" -> access()
+        }
+    }
+
+    private fun drop() {
+        header("Sky Drop", "Отправляйте фото, видео, ссылки и текст с iPhone на телевизор.")
+        val g = group(content)
+        toggle(g, "Sky Drop", { Prefs.dropEnabled }) { on ->
+            Prefs.dropEnabled = on
+            if (on) SkyDrop.start(this) else SkyDrop.stop()
+            content.postDelayed({ rebuild() }, 300)
+        }
+        toggle(g, "Принимать без подтверждения", { Prefs.dropAutoAccept }) { Prefs.dropAutoAccept = it }
+        if (!Prefs.dropEnabled) { footer("Sky Drop выключен."); return }
+        val ip = SkyDrop.ip()
+        if (ip == null) { footer("Телевизор не подключён к сети."); return }
+
+        // QR-код и адрес
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = Ui.round(this@SettingsActivity, 14f, 0xFF1C1C1E.toInt(), 0)
+            setPadding(dpi(16), dpi(16), dpi(16), dpi(16))
+        }
+        card.addView(ImageView(this).apply { setImageBitmap(SkyDrop.qr(SkyDrop.pageUrl(), dpi(150))) }, LinearLayout.LayoutParams(dpi(150), dpi(150)))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(Ui.text(this, 17f, Color.WHITE, Ui.medium, false).apply { text = "1. Отсканируйте камерой iPhone" })
+        col.addView(Ui.text(this, 14f, 0xFF8E8E93.toInt(), Ui.regular, false).apply {
+            text = "Откроется страница Sky Drop — выберите фото или видео, и они появятся на телевизоре. " +
+                "iPhone и телевизор должны быть в одной сети Wi‑Fi."
+            setLineSpacing(0f, 1.2f)
+        }, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(6) })
+        col.addView(Ui.text(this, 13f, 0xFF0A84FF.toInt(), Ui.regular, false).apply { text = SkyDrop.pageUrl() },
+            LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(8) })
+        card.addView(col, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(18) })
+        content.addView(card, LinearLayout.LayoutParams(M, W).apply { bottomMargin = dpi(22) })
+        card.isFocusable = true
+
+        // Быстрая команда для меню «Поделиться»
+        val g2 = group(content, "2. «Поделиться» на iPhone — Быстрая команда")
+        val steps = listOf(
+            "Откройте «Команды» → «+» → «Добавить действие» → «Получить содержимое URL».",
+            "URL: ${SkyDrop.sendUrl()}",
+            "Нажмите «›» у действия: Метод — POST, Тело запроса — «Форма».",
+            "«Добавить новое поле» → «Файл», ключ: file, значение: «Ввод быстрой команды».",
+            "Внизу ⓘ → включите «Показать в меню Поделиться». Назовите команду «Отправить на ТВ».",
+            "Теперь в «Фото», Safari и YouTube: «Поделиться» → «Отправить на ТВ».",
+        )
+        steps.forEachIndexed { i, t -> item(g2, "${i + 1}. $t", last = i == steps.size - 1) }
+        footer("Если адрес телевизора поменяется (после перезагрузки роутера), обновите URL в команде.")
+
+        if (SkyDrop.received.isNotEmpty()) {
+            val g3 = group(content, "Получено")
+            val list = SkyDrop.received.take(10)
+            list.forEachIndexed { i, it ->
+                val kindName = when (it.kind) { "image" -> "Фото"; "video" -> "Видео"; "text" -> "Текст"; else -> "Файл" }
+                item(g3, "$kindName · ${if (it.kind == "text") (it.text ?: "").take(40) else it.name}", Notify.ago(it.time),
+                    last = i == list.size - 1) {
+                    when (it.kind) {
+                        "image", "video" -> SkyDrop.openViewer(this, listOf(it))
+                        "text" -> SkyDrop.handleText(this, it.text ?: "")
+                    }
+                }
+            }
+            val g4 = group(content)
+            item(g4, "Удалить полученное", color = Ui.RED, last = true) {
+                SkyDrop.received.forEach { it.file?.delete() }; SkyDrop.received.clear(); rebuild()
+            }
         }
     }
 
