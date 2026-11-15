@@ -67,14 +67,16 @@ class MainActivity : Activity() {
         override fun run() {
             status.update(); updateWidgets()
             WeatherData.refresh(this@MainActivity)
-            handler.postDelayed(this, 15_000)
+            // следующий раз — ровно в начале минуты (меньше лишней работы)
+            handler.postDelayed(this, 60_000L - System.currentTimeMillis() % 60_000L + 200L)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Prefs.init(this)
         repo = AppRepository(this)
-        model = HomeModel(this)
+        model = HomeModel.get(this)
         Wallpapers.load(this)
         WeatherData.onUpdate = { updateWidgets() }
 
@@ -122,20 +124,53 @@ class MainActivity : Activity() {
 
         if (!splashShown && SystemClock.elapsedRealtime() < 15 * 60_000L) showSplash()
         splashShown = true
+
+        // Установка/удаление приложений — обновляем список
+        registerReceiver(pkgReceiver, android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED); addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        })
     }
 
-    override fun onResume() {
-        super.onResume()
+    private val pkgReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            AppRepository.dirty = true
+            if (hasWindowFocus() || !isFinishing) handler.postDelayed({ reloadApps() }, 500)
+        }
+    }
+
+    override fun onDestroy() {
+        try { unregisterReceiver(pkgReceiver) } catch (e: Exception) {}
+        super.onDestroy()
+    }
+
+    private fun reloadApps(force: Boolean = false) {
         val all = repo.load()
         val sig = all.joinToString("|") { it.pkg + ":" + it.label }
-        if (sig != appsSig || pageView == null) {
+        if (force || sig != appsSig || pageView == null) {
             appsSig = sig
             model.sync(all)
             renderAll()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        WeatherData.onUpdate = { updateWidgets() }
+        Updater.onChange = { updateBadges() }
+        if (SettingsActivity.changed) {
+            SettingsActivity.changed = false
+            IconFactory.clear()
+            if (Wallpapers.get(repo.wallpaper) !== wallpaper.wallpaper) wallpaper.wallpaper = Wallpapers.get(repo.wallpaper)
+            cc.rebuildTiles()
+            reloadApps(force = true)
+        } else reloadApps()
         wallpaper.start()
         handler.removeCallbacks(tick); handler.post(tick)
         if (cc.open) cc.refresh()
+        Updater.autoCheck(this)
+        updateBadges()
         Kiosk.enterIfOwner(this)
     }
 
@@ -170,6 +205,7 @@ class MainActivity : Activity() {
         renderDock()
         renderPage()
         renderDots()
+        updateBadges()
         if (!cc.open && !sheet.open) home.post { restoreFocus(focusTag) }
     }
 
@@ -186,7 +222,13 @@ class MainActivity : Activity() {
     private fun buildPage(p: Int): PageView {
         val pv = PageView(this)
         for (item in model.onPage(p)) {
-            val v: View = if (item.isApp) {
+            val v: View = if (item.isFolder) {
+                AppTileView(this).apply {
+                    bindFolder(item.name ?: "Папка", item.children.mapNotNull { model.apps[it] })
+                    setOnClickListener { sheet.showFolder(item) }
+                    setOnLongClickListener { itemMenu(item); true }
+                }
+            } else if (item.isApp) {
                 val a = model.apps[item.pkg] ?: continue
                 AppTileView(this).apply {
                     bind(a, model.label(a.pkg))
@@ -408,17 +450,21 @@ class MainActivity : Activity() {
         val m = moving ?: return
         val orig = moveBackup.firstOrNull { it.first === m }?.second
         val over = model.overlapping(m)
-        if (orig != null && over.size == 1 && over[0].isApp && m.w == 1 && m.h == 1) {
-            over[0].page = orig[0]; over[0].x = orig[1]; over[0].y = orig[2]   // поменять местами
+        var openFolder: HomeItem? = null
+        if (m.isApp && over.size == 1 && over[0].isApp) {
+            openFolder = model.makeFolder(over[0], m)            // приложение на приложение — новая папка
+        } else if (m.isApp && over.size == 1 && over[0].isFolder) {
+            model.addToFolder(over[0], m); openFolder = over[0]   // в существующую папку
         } else {
             for (o in over) model.place(o, m.page)
         }
         finishMove()
         model.compact(); model.save()
-        currentPage = m.page
-        val id = m.id
+        currentPage = (openFolder ?: m).page
+        val id = (openFolder ?: m).id
         renderAll()
         pageView?.post { pageView?.viewFor(id)?.requestFocus() }
+        openFolder?.let { f -> handler.postDelayed({ sheet.showFolder(f) }, 350) }
     }
 
     private fun cancelMove() {
@@ -442,6 +488,19 @@ class MainActivity : Activity() {
         if (moving != null) return
         val items = ArrayList<SheetItem>()
         items += SheetItem("Переместить", R.drawable.ic_move) { startMove(item) }
+        if (item.isFolder) {
+            items += SheetItem("Открыть", R.drawable.ic_apps) { sheet.showFolder(item) }
+            items += SheetItem("Переименовать папку", R.drawable.ic_text) {
+                sheet.showInput("Название папки", item.name ?: "", "Папка") { v ->
+                    item.name = v.trim().ifEmpty { "Папка" }; model.save(); renderAll()
+                }
+            }
+            items += SheetItem("Распустить папку", R.drawable.ic_trash, destructive = true) {
+                model.dissolve(item); model.compact(); model.save(); renderAll()
+            }
+            sheet.showList(item.name ?: "Папка", items)
+            return
+        }
         if (item.isApp) {
             val a = model.apps[item.pkg] ?: return
             items += SheetItem("Переименовать", R.drawable.ic_text) { rename(a.pkg) }
@@ -507,10 +566,100 @@ class MainActivity : Activity() {
         model.save(); renderAll()
     }
 
-    private fun widgetPicker() {
+    fun widgetPicker() {
         sheet.showList("Добавить виджет", WidgetDefs.all.map { d ->
             SheetItem("${d.name}  ·  ${d.w}×${d.h}", d.icon) { addWidget(d) }
         })
+    }
+
+    fun folderAppMenu(folder: HomeItem, pkg: String) {
+        val a = model.apps[pkg] ?: return
+        val items = arrayListOf(
+            SheetItem("Убрать из папки", R.drawable.ic_move) {
+                model.removeFromFolder(folder, pkg); renderAll()
+            },
+            SheetItem("Переименовать", R.drawable.ic_text) { rename(pkg) },
+        )
+        appActions(a, items)
+        sheet.showList(model.label(pkg), items)
+    }
+
+    fun launchPkg(pkg: String) {
+        val a = model.apps[pkg] ?: return
+        if (a.special == "settings") { openSettings(); return }
+        try { startActivity(Intent(a.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (e: Exception) { toast("Не удалось открыть «${model.label(pkg)}»") }
+    }
+
+    fun openSettings(section: String? = null) {
+        val i = Intent(this, SettingsActivity::class.java)
+        if (section != null) i.putExtra(SettingsActivity.EXTRA_SECTION, section)
+        startActivity(i)
+    }
+
+    /** Значок «1» на Настройках и баннер, когда вышло обновление. */
+    private var bannerShownFor = -1
+    private fun updateBadges() {
+        val n = if (Updater.available != null) 1 else 0
+        fun mark(v: View?) { (v as? AppTileView)?.setBadge(n) }
+        model.items.firstOrNull { it.pkg == AppRepository.SETTINGS }?.let { mark(pageView?.viewFor(it.id)) }
+        mark(findInDock("dock:" + AppRepository.SETTINGS))
+        val a = Updater.available
+        if (a != null && a.code != bannerShownFor && !cc.open && !sheet.open && moving == null) {
+            bannerShownFor = a.code
+            hint.text = "Доступно обновление Sky OS ${a.name} — Настройки → Обновление ПО"
+            hint.visibility = View.VISIBLE; hint.alpha = 0f
+            hint.animate().alpha(1f).setDuration(250).start()
+            handler.postDelayed({ if (moving == null) hint.animate().alpha(0f).setDuration(300).withEndAction { hint.visibility = View.GONE }.start() }, 9000)
+        }
+    }
+
+    fun resizeWidget(item: HomeItem, sizes: List<Pair<Int, Int>>) {
+        sheet.showList("Размер виджета", sizes.map { (w, h) ->
+            SheetItem((if (item.w == w && item.h == h) "✓  " else "") + "$w × $h", R.drawable.ic_move) {
+                model.resize(item, w, h); renderAll()
+            }
+        })
+    }
+
+    // ---------- Таймер сна и снимок экрана ----------
+
+    private var sleepAt = 0L
+    private val sleepRunnable = Runnable { sleepAt = 0L; sleepNow() }
+
+    fun timerCaption(): String {
+        if (sleepAt == 0L) return "Таймер сна · выключен"
+        val left = ((sleepAt - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0) + 1
+        return "Таймер сна · осталось $left мин"
+    }
+
+    fun showSleepTimer() {
+        val opts = listOf(0, 15, 30, 45, 60, 90, 120)
+        sheet.showList(timerCaption(), opts.map { m ->
+            SheetItem(if (m == 0) "Выключить таймер" else "$m минут", R.drawable.ic_timer) {
+                handler.removeCallbacks(sleepRunnable)
+                if (m == 0) { sleepAt = 0L; toast("Таймер сна выключен") }
+                else {
+                    sleepAt = System.currentTimeMillis() + m * 60_000L
+                    handler.postDelayed(sleepRunnable, m * 60_000L)
+                    toast("Телевизор уснёт через $m мин")
+                }
+            }
+        })
+    }
+
+    fun sleepNow() {
+        val svc = HomeInterceptService.instance
+        if (svc != null && android.os.Build.VERSION.SDK_INT >= 28)
+            svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+        else toast("Для сна включите Sky OS в «Спец. возможностях»")
+    }
+
+    fun screenshot() {
+        val svc = HomeInterceptService.instance
+        if (svc != null && android.os.Build.VERSION.SDK_INT >= 28)
+            svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)
+        else toast("Для снимка экрана включите Sky OS в «Спец. возможностях»")
     }
 
     fun addWidget(d: WidgetDefs.Def) {
@@ -599,6 +748,7 @@ class MainActivity : Activity() {
     // ================= Утилиты =================
 
     private fun launch(v: View, a: AppEntry) {
+        if (a.special == "settings") { openSettings(); return }
         try {
             val opts = ActivityOptions.makeScaleUpAnimation(v, 0, 0, v.width, v.height).toBundle()
             startActivity(Intent(a.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opts)

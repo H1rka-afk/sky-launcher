@@ -102,9 +102,43 @@ class ScreenshotTest {
         act.sheet.hide(); idle(500)
         key(act, KeyEvent.KEYCODE_BACK); idle(500)
 
+        // Папка: приложение на приложение + OK
+        val first = act.model.items.filter { it.isApp && it.page == 0 }.sortedWith(compareBy({ it.y }, { it.x }))
+            .first { a -> act.model.items.any { b -> b.isApp && b.page == 0 && b.y == a.y && b.x == a.x + 1 } }
+        act.startMove(first); idle(300)
+        act.testMove(1, 0); idle(300)
+        key(act, KeyEvent.KEYCODE_DPAD_CENTER); idle(1200)
+        act.window.decorView.captureRoboImage("build/shots/09_folder_open.png")
+        key(act, KeyEvent.KEYCODE_BACK); idle(600)
+        act.window.decorView.captureRoboImage("build/shots/10_folder_icon.png")
+
         act.setWallpaper(6); idle(900)
         act.window.decorView.captureRoboImage("build/shots/07_home_photo.png")
         act.setWallpaper(12); idle(900)
         act.window.decorView.captureRoboImage("build/shots/08_home_photo2.png")
+    }
+
+    @Test
+    fun settings() {
+        for (sec in listOf("about", "update", "cc", "wallpaper", "weather")) {
+            val i = Intent(org.robolectric.RuntimeEnvironment.getApplication(), SettingsActivity::class.java)
+                .putExtra(SettingsActivity.EXTRA_SECTION, sec)
+            val a = Robolectric.buildActivity(SettingsActivity::class.java, i).setup().get()
+            idle(500)
+            a.window.decorView.captureRoboImage("build/shots/s_$sec.png")
+        }
+    }
+
+    /** Реальный запрос погоды — проверяем, что сервер отвечает и данные разбираются. */
+    @Test
+    fun weatherNetwork() {
+        try {
+            val (d, src) = WeatherData.fetch(47.2357, 39.7015)
+            println("WEATHER OK [$src]: ${d.temp}° code=${d.code} min=${d.min} max=${d.max} hours=${d.hours.map { it.label + ":" + it.temp }}")
+        } catch (e: Exception) { println("WEATHER FAIL: ${e.message}") }
+        try {
+            val o = org.json.JSONObject(WeatherData.http("https://wttr.in/47.2357,39.7015?format=j1&lang=ru"))
+            println("WTTR OK: " + o.getJSONArray("current_condition").getJSONObject(0).getString("temp_C"))
+        } catch (e: Exception) { println("WTTR FAIL: ${e.message}") }
     }
 }

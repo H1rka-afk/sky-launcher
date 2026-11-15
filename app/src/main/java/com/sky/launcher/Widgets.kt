@@ -34,8 +34,9 @@ object WidgetDefs {
     class Def(val kind: String, val name: String, val w: Int, val h: Int, val icon: Int)
 
     val all = listOf(
-        Def("weather", "Погода", 4, 2, R.drawable.ic_weather),
-        Def("weather_s", "Погода (маленький)", 2, 2, R.drawable.ic_weather),
+        Def("weather", "Погода", 3, 1, R.drawable.ic_weather),
+        Def("weather", "Погода (большой)", 4, 2, R.drawable.ic_weather),
+        Def("weather", "Погода (квадрат)", 2, 2, R.drawable.ic_weather),
         Def("clock", "Часы", 3, 1, R.drawable.ic_clock),
         Def("aclock", "Часы со стрелками", 2, 2, R.drawable.ic_clock),
         Def("calendar", "Календарь", 1, 1, R.drawable.ic_calendar),
@@ -48,8 +49,7 @@ object WidgetDefs {
     fun get(kind: String) = all.firstOrNull { it.kind == kind } ?: all[0]
 
     fun create(act: MainActivity, item: HomeItem): WidgetView = when (item.kind) {
-        "weather" -> WeatherWidget(act, item)
-        "weather_s" -> WeatherSmallWidget(act, item)
+        "weather", "weather_s" -> WeatherWidget(act, item)
         "clock" -> ClockWidget(act, item)
         "aclock" -> AnalogClockWidget(act, item)
         "calendar" -> CalendarWidget(act, item)
@@ -213,49 +213,83 @@ class MonthWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
 
 // ---------------- Погода ----------------
 
+/** Погода: вид зависит от размера (3×1 — компактный, 2×2 — квадрат, 4×2 — большой). */
 class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val city = Ui.text(act, 15f, Color.WHITE, Ui.medium, false)
-    private val temp = Ui.text(act, 54f, Color.WHITE, Ui.light, false)
+    private val compact = item.h == 1
+    private val large = item.w >= 4 && item.h >= 2
+    private val city = Ui.text(act, if (compact) 13f else 15f, Color.WHITE, Ui.medium, false)
+    private val temp = Ui.text(act, when { compact -> 40f; large -> 54f; else -> 44f }, Color.WHITE, Ui.light, false)
     private val icon = WeatherIconView(act)
-    private val cond = Ui.text(act, 14f, Color.WHITE, Ui.medium, false)
-    private val range = Ui.text(act, 14f, Color.WHITE, Ui.medium, false)
+    private val cond = Ui.text(act, if (compact) 12f else 14f, Color.WHITE, Ui.medium, false)
+    private val range = Ui.text(act, if (compact) 12f else 14f, Color.WHITE, Ui.medium, false)
     private val hoursRow = LinearLayout(act)
-    private val msg = Ui.text(act, 14f, 0xCCFFFFFF.toInt(), Ui.regular, false)
+    private val msg = Ui.text(act, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false)
+    private var shown = -1L
 
     init {
-        val box = col(Gravity.TOP).apply { setPadding(act.dpi(20), act.dpi(16), act.dpi(20), act.dpi(14)) }
-        val top = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
-        val left = col(Gravity.TOP)
-        val cityRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         city.maxLines = 1; city.ellipsize = TextUtils.TruncateAt.END
-        cityRow.addView(city)
-        cityRow.addView(ImageView(act).apply { setImageResource(R.drawable.ic_location); alpha = 0.9f },
-            LinearLayout.LayoutParams(act.dpi(13), act.dpi(13)).apply { marginStart = act.dpi(5) })
-        left.addView(cityRow); left.addView(temp, lp(top = 2))
-        top.addView(left, LinearLayout.LayoutParams(0, WRAP, 1f))
-        val right = col(Gravity.END)
-        right.addView(icon, LinearLayout.LayoutParams(act.dpi(30), act.dpi(30)))
-        right.addView(cond, lp(top = 6)); right.addView(range, lp(top = 3))
-        cond.gravity = Gravity.END
-        top.addView(right)
-        box.addView(top, lp(MATCH))
+        cond.maxLines = 1; cond.ellipsize = TextUtils.TruncateAt.END
         hoursRow.orientation = LinearLayout.HORIZONTAL
-        box.addView(hoursRow, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = act.dpi(6) })
+        val cityRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        cityRow.addView(city, LinearLayout.LayoutParams(WRAP, WRAP))
+        cityRow.addView(ImageView(act).apply { setImageResource(R.drawable.ic_location); alpha = 0.9f },
+            LinearLayout.LayoutParams(act.dpi(12), act.dpi(12)).apply { marginStart = act.dpi(5) })
+        when {
+            compact -> {
+                val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(act.dpi(18), act.dpi(10), act.dpi(14), act.dpi(10)) }
+                val left = col(Gravity.CENTER_VERTICAL)
+                left.addView(cityRow); left.addView(temp, lp(top = 1))
+                val condRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                condRow.addView(icon, LinearLayout.LayoutParams(act.dpi(16), act.dpi(16)).apply { marginEnd = act.dpi(5) })
+                condRow.addView(cond)
+                left.addView(condRow, lp(top = 1))
+                row.addView(left, LinearLayout.LayoutParams(0, MATCH, 1f))
+                row.addView(hoursRow, LinearLayout.LayoutParams(act.dpi(168), MATCH))
+                addView(row, LayoutParams(MATCH, MATCH))
+            }
+            large -> {
+                val box = col(Gravity.TOP).apply { setPadding(act.dpi(20), act.dpi(16), act.dpi(20), act.dpi(14)) }
+                val top = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                val left = col(Gravity.TOP)
+                left.addView(cityRow); left.addView(temp, lp(top = 2))
+                top.addView(left, LinearLayout.LayoutParams(0, WRAP, 1f))
+                val right = col(Gravity.END)
+                right.addView(icon, LinearLayout.LayoutParams(act.dpi(30), act.dpi(30)))
+                right.addView(cond, lp(top = 6)); right.addView(range, lp(top = 3))
+                cond.gravity = Gravity.END
+                top.addView(right)
+                box.addView(top, lp(MATCH))
+                box.addView(hoursRow, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = act.dpi(6) })
+                addView(box, LayoutParams(MATCH, MATCH))
+            }
+            else -> {
+                val box = col(Gravity.TOP).apply { setPadding(act.dpi(16), act.dpi(14), act.dpi(16), act.dpi(14)) }
+                box.addView(cityRow); box.addView(temp, lp(top = 2))
+                box.addView(View(act), LinearLayout.LayoutParams(1, 0, 1f))
+                box.addView(icon, LinearLayout.LayoutParams(act.dpi(24), act.dpi(24)))
+                box.addView(cond, lp(MATCH, top = 4)); box.addView(range, lp(top = 2))
+                addView(box, LayoutParams(MATCH, MATCH))
+            }
+        }
         msg.gravity = Gravity.CENTER
-        addView(box, LayoutParams(MATCH, MATCH))
-        addView(msg, LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { bottomMargin = act.dpi(30) })
+        addView(msg, LayoutParams(MATCH, WRAP, if (compact) Gravity.CENTER_VERTICAL or Gravity.END else Gravity.BOTTOM).apply {
+            if (compact) { width = act.dpi(170); marginEnd = act.dpi(8) } else bottomMargin = act.dpi(24)
+        })
         update()
     }
 
     override fun update() {
         val d = WeatherData.data
+        val stamp = (d?.time ?: 0L) + (if (WeatherData.failed) 1 else 0) + WeatherData.city(act).hashCode()
+        if (stamp == shown) return          // ничего не изменилось — не перерисовываем
+        shown = stamp
         city.text = WeatherData.city(act)
         val g = WeatherData.gradient(d?.code ?: 3, d?.day ?: true)
         background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, g).apply { cornerRadius = act.dp(radius) }
         hoursRow.removeAllViews()
         if (d == null) {
             temp.text = "--°"; cond.text = ""; range.text = ""; icon.visibility = View.INVISIBLE
-            msg.text = if (WeatherData.failed) "Нет данных — проверьте интернет" else "Загрузка погоды…"
+            msg.text = if (WeatherData.failed) "Нет связи с сервером погоды.\nУдерживайте OK → «Обновить»" else "Загрузка погоды…"
             msg.visibility = View.VISIBLE
             return
         }
@@ -263,11 +297,14 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
         temp.text = "${d.temp}°"; icon.set(d.code, d.day)
         cond.text = WeatherData.desc(d.code)
         range.text = "↓ ${d.min}°  ↑ ${d.max}°"
-        for (h in d.hours) {
-            val c = col(Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM)
-            c.addView(Ui.text(act, 13f, Color.WHITE, Ui.medium, false).apply { text = h.label })
-            c.addView(WeatherIconView(act).apply { set(h.code, h.day) }, LinearLayout.LayoutParams(act.dpi(26), act.dpi(26)).apply { topMargin = act.dpi(6) })
-            c.addView(Ui.text(act, 15f, Color.WHITE, Ui.medium, false).apply { text = "${h.temp}°" }, lp(top = 6))
+        if (!large && !compact) return
+        val n = if (compact) 4 else 6
+        for (h in d.hours.take(n)) {
+            val c = col(Gravity.CENTER)
+            c.addView(Ui.text(act, if (compact) 11f else 13f, Color.WHITE, Ui.medium, false).apply { text = h.label })
+            val s = act.dpi(if (compact) 20 else 26)
+            c.addView(WeatherIconView(act).apply { set(h.code, h.day) }, LinearLayout.LayoutParams(s, s).apply { topMargin = act.dpi(if (compact) 4 else 6) })
+            c.addView(Ui.text(act, if (compact) 13f else 15f, Color.WHITE, Ui.medium, false).apply { text = "${h.temp}°" }, lp(top = if (compact) 4 else 6))
             hoursRow.addView(c, LinearLayout.LayoutParams(0, MATCH, 1f))
         }
     }
@@ -277,42 +314,7 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
     override fun menuItems() = listOf(
         SheetItem("Выбрать город", R.drawable.ic_location) { act.pickCity() },
         SheetItem("Обновить", R.drawable.ic_refresh) { WeatherData.refresh(act, true) },
-    )
-}
-
-class WeatherSmallWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
-    private val city = Ui.text(act, 14f, Color.WHITE, Ui.medium, false)
-    private val temp = Ui.text(act, 44f, Color.WHITE, Ui.light, false)
-    private val icon = WeatherIconView(act)
-    private val cond = Ui.text(act, 13f, Color.WHITE, Ui.medium, false)
-    private val range = Ui.text(act, 13f, Color.WHITE, Ui.medium, false)
-
-    init {
-        val box = col(Gravity.TOP).apply { setPadding(act.dpi(16), act.dpi(14), act.dpi(16), act.dpi(14)) }
-        city.maxLines = 1; city.ellipsize = TextUtils.TruncateAt.END
-        box.addView(city, lp(MATCH)); box.addView(temp, lp(top = 2))
-        box.addView(View(act), LinearLayout.LayoutParams(1, 0, 1f))
-        box.addView(icon, LinearLayout.LayoutParams(act.dpi(24), act.dpi(24)))
-        box.addView(cond, lp(top = 4)); box.addView(range, lp(top = 2))
-        addView(box, LayoutParams(MATCH, MATCH))
-        update()
-    }
-
-    override fun update() {
-        val d = WeatherData.data
-        city.text = WeatherData.city(act)
-        val g = WeatherData.gradient(d?.code ?: 3, d?.day ?: true)
-        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, g).apply { cornerRadius = act.dp(radius) }
-        if (d == null) { temp.text = "--°"; cond.text = if (WeatherData.failed) "Нет данных" else "Загрузка…"; range.text = ""; return }
-        temp.text = "${d.temp}°"; icon.set(d.code, d.day)
-        cond.text = WeatherData.desc(d.code); range.text = "↓ ${d.min}°  ↑ ${d.max}°"
-    }
-
-    override fun onClickWidget() { act.toast("Обновляю погоду…"); WeatherData.refresh(act, true) }
-
-    override fun menuItems() = listOf(
-        SheetItem("Выбрать город", R.drawable.ic_location) { act.pickCity() },
-        SheetItem("Обновить", R.drawable.ic_refresh) { WeatherData.refresh(act, true) },
+        SheetItem("Размер виджета", R.drawable.ic_move) { act.resizeWidget(item, listOf(3 to 1, 2 to 2, 4 to 2)) },
     )
 }
 

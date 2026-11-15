@@ -11,8 +11,10 @@ android {
         minSdk = 26
         // 28 — чтобы работали переключатели Wi‑Fi и Bluetooth в Пункте управления
         targetSdk = 28
-        versionCode = 3
-        versionName = "3.0"
+        // Номер сборки GitHub → номер версии (нужен для автообновления)
+        val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "0").toInt()
+        versionCode = 100 + run
+        versionName = "3.1.$run"
     }
     signingConfigs {
         create("skyos") {
@@ -43,4 +45,5 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     systemProperty("roborazzi.test.record", "true")
+    testLogging { showStandardStreams = true }
 }

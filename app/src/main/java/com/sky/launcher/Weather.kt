@@ -27,9 +27,11 @@ object WeatherData {
 
     var data: Data? = null
     var failed = false
+    var lastError: String? = null
+    var source: String = ""
     var onUpdate: (() -> Unit)? = null
     private var loading = false
-    private var cacheLoaded = false
+    private var lastAttempt = 0L
     private val main = Handler(Looper.getMainLooper())
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("skyos_weather", Context.MODE_PRIVATE)
@@ -45,37 +47,82 @@ object WeatherData {
         refresh(ctx, true)
     }
 
-    private fun http(url: String): String {
+    fun http(url: String): String {
         val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 10_000; c.readTimeout = 10_000
-        try { return c.inputStream.bufferedReader().readText() } finally { c.disconnect() }
+        c.connectTimeout = 12_000; c.readTimeout = 15_000
+        c.setRequestProperty("User-Agent", "SkyOS/3 (Android TV launcher)")
+        c.setRequestProperty("Accept", "application/json")
+        try {
+            val code = c.responseCode
+            if (code !in 200..299) throw java.io.IOException("HTTP $code")
+            return c.inputStream.bufferedReader().readText()
+        } finally { c.disconnect() }
+    }
+
+    /** Загружает погоду синхронно: сначала Open‑Meteo, при ошибке — wttr.in. */
+    fun fetch(lat: Double, lon: Double): Pair<Data, String> {
+        val errors = ArrayList<String>()
+        try {
+            val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
+                "&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day" +
+                "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2"
+            return parse(JSONObject(http(url))) to "Open‑Meteo"
+        } catch (e: Exception) { errors += "Open‑Meteo: " + (e.message ?: e.javaClass.simpleName) }
+        try {
+            return parseWttr(JSONObject(http("https://wttr.in/$lat,$lon?format=j1&lang=ru"))) to "wttr.in"
+        } catch (e: Exception) { errors += "wttr.in: " + (e.message ?: e.javaClass.simpleName) }
+        throw java.io.IOException(errors.joinToString("; "))
+    }
+
+    /** Коды WWO (wttr.in) → коды WMO. */
+    private fun wwo(c: Int): Int = when (c) {
+        113 -> 0; 116 -> 2; 119, 122 -> 3; 143, 248, 260 -> 45
+        176, 263, 266, 293, 296, 353 -> 61; 299, 302, 356 -> 63; 305, 308, 359 -> 65
+        281, 284, 311, 314 -> 66; 179, 182, 185, 317, 320, 323, 326, 362, 365, 368 -> 71
+        227, 329, 332, 371 -> 73; 230, 335, 338, 374, 377, 350 -> 75
+        200, 386, 389, 392, 395 -> 95; else -> 3
+    }
+
+    private fun parseWttr(o: JSONObject): Data {
+        val cur = o.getJSONArray("current_condition").getJSONObject(0)
+        val days = o.getJSONArray("weather")
+        val nowH = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        fun isDay(h: Int) = h in 7..18
+        val hours = ArrayList<Hour>()
+        for (d in 0 until minOf(2, days.length())) {
+            val hourly = days.getJSONObject(d).getJSONArray("hourly")
+            for (i in 0 until hourly.length()) {
+                val h = hourly.getJSONObject(i)
+                val hh = h.getString("time").toInt() / 100
+                if (d == 0 && hh < nowH) continue
+                if (hours.size < 6) hours += Hour(hh.toString(), h.getString("tempC").toInt(), wwo(h.getString("weatherCode").toInt()), isDay(hh))
+            }
+        }
+        val today = days.getJSONObject(0)
+        return Data(cur.getString("temp_C").toInt(), wwo(cur.getString("weatherCode").toInt()), isDay(nowH),
+            today.getString("mintempC").toInt(), today.getString("maxtempC").toInt(), hours, System.currentTimeMillis())
     }
 
     fun refresh(ctx: Context, force: Boolean = false) {
         val app = ctx.applicationContext
-        if (!cacheLoaded) {
-            cacheLoaded = true
-            prefs(app).getString("cache", null)?.let { try { data = parse(JSONObject(it)) } catch (e: Exception) {} }
-        }
         val d = data
-        if (loading || (!force && d != null && System.currentTimeMillis() - d.time < 30 * 60_000L)) return
-        loading = true
-        val url = "https://api.open-meteo.com/v1/forecast?latitude=${lat(app)}&longitude=${lon(app)}" +
-            "&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day" +
-            "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2"
+        val now = System.currentTimeMillis()
+        if (loading) return
+        if (!force && d != null && now - d.time < 30 * 60_000L) return
+        if (!force && d == null && failed && now - lastAttempt < 2 * 60_000L) return
+        loading = true; lastAttempt = now
+        val la = lat(app); val lo = lon(app)
         Thread {
             try {
-                val txt = http(url)
-                val parsed = parse(JSONObject(txt))
-                prefs(app).edit().putString("cache", txt).apply()
-                main.post { data = parsed; failed = false; loading = false; onUpdate?.invoke() }
+                val (parsed, src) = fetch(la, lo)
+                main.post { data = parsed; source = src; failed = false; lastError = null; loading = false; onUpdate?.invoke() }
             } catch (e: Exception) {
-                main.post { failed = true; loading = false; onUpdate?.invoke() }
+                main.post { failed = true; lastError = e.message; loading = false; onUpdate?.invoke() }
             }
         }.start()
     }
 
-    private fun parse(o: JSONObject): Data {
+    fun parse(o: JSONObject): Data {
         val cur = o.getJSONObject("current")
         val hourly = o.getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
@@ -99,15 +146,23 @@ object WeatherData {
 
     fun search(query: String, cb: (List<Place>?) -> Unit) {
         Thread {
-            val res = try {
-                val txt = http("https://geocoding-api.open-meteo.com/v1/search?count=8&language=ru&format=json&name=" +
-                    URLEncoder.encode(query.trim(), "UTF-8"))
-                val arr = JSONObject(txt).optJSONArray("results")
+            val q = URLEncoder.encode(query.trim(), "UTF-8")
+            var res: List<Place>? = try {
+                val arr = JSONObject(http("https://geocoding-api.open-meteo.com/v1/search?count=8&language=ru&format=json&name=$q"))
+                    .optJSONArray("results")
                 (0 until (arr?.length() ?: 0)).map { i ->
                     val r = arr!!.getJSONObject(i)
                     val name = r.getString("name")
                     val extra = listOf(r.optString("admin1"), r.optString("country")).filter { it.isNotBlank() && it != name }
                     Place(name, (listOf(name) + extra).joinToString(", "), r.getDouble("latitude"), r.getDouble("longitude"))
+                }
+            } catch (e: Exception) { null }
+            if (res == null) res = try {
+                val arr = org.json.JSONArray(http("https://nominatim.openstreetmap.org/search?format=json&limit=8&accept-language=ru&q=$q"))
+                (0 until arr.length()).map { i ->
+                    val r = arr.getJSONObject(i)
+                    val title = r.getString("display_name")
+                    Place(title.substringBefore(","), title.split(",").take(3).joinToString(",").trim(), r.getString("lat").toDouble(), r.getString("lon").toDouble())
                 }
             } catch (e: Exception) { null }
             main.post { cb(res) }

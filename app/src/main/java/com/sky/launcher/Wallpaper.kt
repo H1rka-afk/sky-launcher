@@ -69,16 +69,17 @@ object Wallpapers {
 }
 
 /**
- * Живые обои: мягкие цветные пятна медленно плавают, как на iPhone.
- * Рисуются в маленький буфер и растягиваются — это почти не нагружает ТВ.
+ * Живые обои. Градиент рисуется в крошечный буфер ~15 раз в секунду,
+ * а фото рисуется один раз — плавное приближение делает видеокарта (свойства View),
+ * поэтому почти не нагружает процессор телевизора.
  */
 class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(ctx) {
 
     var wallpaper: Wallpaper = Wallpapers.all[0]
-        set(v) { field = v; invalidate() }
+        set(v) { field = v; photoBmp = null; invalidate(); restartMotion() }
 
-    private val bw = 240
-    private val bh = 135
+    private val bw = 160
+    private val bh = 90
     private val buf = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
     private val bc = Canvas(buf)
     private val blob = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -87,9 +88,33 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
     private val dst = Rect()
     private val t0 = SystemClock.uptimeMillis()
     private var running = false
+    private var kenBurns: android.animation.ValueAnimator? = null
 
-    fun start() { running = true; invalidate() }
-    fun stop() { running = false }
+    private val live get() = animated && running && Prefs.motion
+
+    fun start() { running = true; invalidate(); restartMotion() }
+    fun stop() { running = false; kenBurns?.cancel(); kenBurns = null }
+
+    /** Медленное «дыхание» фото — только трансформации, без перерисовки. */
+    private fun restartMotion() {
+        kenBurns?.cancel(); kenBurns = null
+        scaleX = 1f; scaleY = 1f; translationX = 0f; translationY = 0f
+        if (!live || wallpaper.photo == null) return
+        kenBurns = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 45_000
+            repeatMode = android.animation.ValueAnimator.REVERSE
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                val k = 1.06f + 0.05f * f
+                scaleX = k; scaleY = k
+                translationX = width * 0.018f * (f * 2 - 1)
+                translationY = height * 0.01f * (1 - f * 2)
+            }
+            start()
+        }
+    }
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         dst.set(0, 0, w, h)
@@ -117,33 +142,26 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
     }
 
     private var photoBmp: Bitmap? = null
-    private var photoRes: String? = null
     private val m = android.graphics.Matrix()
 
-    private fun drawPhoto(canvas: Canvas, t: Float): Boolean {
+    private fun drawPhoto(canvas: Canvas): Boolean {
         val res = wallpaper.photo ?: return false
-        if (photoRes != res || photoBmp == null) {
-            photoRes = res
-            photoBmp = Photos.decode(context, res, if (animated) maxOf(width, 1280) else maxOf(width, 320))
-        }
+        if (photoBmp == null) photoBmp = Photos.decode(context, res, if (animated) maxOf(width, 1280) else maxOf(width, 320))
         val b = photoBmp ?: return false
-        val k = if (animated) 1.07f + 0.04f * sin(t * 0.035f) else 1f
-        val s = maxOf(width / b.width.toFloat(), height / b.height.toFloat()) * k
-        val dx = if (animated) width * 0.02f * sin(t * 0.021f) else 0f
-        val dy = if (animated) height * 0.015f * cos(t * 0.017f) else 0f
+        val s = maxOf(width / b.width.toFloat(), height / b.height.toFloat())
         m.setScale(s, s)
-        m.postTranslate((width - b.width * s) / 2 + dx, (height - b.height * s) / 2 + dy)
+        m.postTranslate((width - b.width * s) / 2, (height - b.height * s) / 2)
         canvas.drawBitmap(b, m, scale)
         return true
     }
 
     override fun onDraw(canvas: Canvas) {
-        val t = if (animated) (SystemClock.uptimeMillis() - t0) / 1000f + 20f else 20f
-        if (!drawPhoto(canvas, t)) {
+        if (!drawPhoto(canvas)) {
+            val t = if (live) (SystemClock.uptimeMillis() - t0) / 1000f + 20f else 20f
             render(t)
             canvas.drawBitmap(buf, null, dst, scale)
+            if (live) postInvalidateDelayed(66L)
         }
         if (animated) canvas.drawRect(dst, shade)
-        if (animated && running) postInvalidateDelayed(if (wallpaper.photo != null) 33L else 50L)
     }
 }

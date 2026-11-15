@@ -210,6 +210,41 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
         present(b, LayoutParams(WRAP, WRAP, Gravity.CENTER), focus)
     }
 
+    /** Открытая папка как в iOS: название сверху и сетка приложений на «стекле». */
+    fun showFolder(folder: HomeItem) {
+        val b = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            clipChildren = false; clipToPadding = false
+        }
+        b.addView(Ui.text(act, 30f, Color.WHITE, Ui.medium).apply { text = folder.name ?: "Папка" },
+            LinearLayout.LayoutParams(WRAP, WRAP).apply { bottomMargin = act.dpi(22) })
+        val panel = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false
+            background = Ui.round(act, 40f, 0x33FFFFFF, 0x33FFFFFF)
+            setPadding(act.dpi(26), act.dpi(26), act.dpi(26), act.dpi(18))
+        }
+        val cols = 5
+        var row: LinearLayout? = null
+        var first: View? = null
+        folder.children.forEachIndexed { i, pkg ->
+            val a = act.model.apps[pkg] ?: return@forEachIndexed
+            if (i % cols == 0) {
+                row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
+                panel.addView(row, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (i > 0) topMargin = act.dpi(10) })
+            }
+            val t = AppTileView(act, 72, true)
+            t.bind(a, act.model.label(pkg))
+            t.setOnClickListener { v -> hide { act.launchPkg(pkg) } }
+            t.setOnLongClickListener { hide { act.folderAppMenu(folder, pkg) }; true }
+            row!!.addView(t, LinearLayout.LayoutParams(act.dpi(116), WRAP))
+            if (first == null) first = t
+        }
+        b.addView(panel)
+        b.addView(Ui.text(act, 13f, 0x99FFFFFF.toInt(), Ui.regular).apply { text = "Удерживайте OK на приложении — убрать из папки" },
+            LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = act.dpi(16) })
+        present(b, LayoutParams(WRAP, WRAP, Gravity.CENTER), first)
+    }
+
     fun showInputs() {
         val items = ArrayList<SheetItem>()
         try {

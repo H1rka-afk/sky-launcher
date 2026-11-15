@@ -13,23 +13,33 @@ const val ROWS = 3
 /** Элемент главного экрана: приложение или виджет, занимает w×h ячеек. */
 class HomeItem(
     val id: String, val kind: String, val pkg: String?,
-    var page: Int, var x: Int, var y: Int, var w: Int, var h: Int
+    var page: Int, var x: Int, var y: Int, var w: Int, var h: Int,
+    var name: String? = null,
+    val children: MutableList<String> = ArrayList()
 ) {
     val isApp get() = kind == "app"
+    val isFolder get() = kind == "folder"
+    val isIcon get() = isApp || isFolder
 
     fun toJson(): JSONObject = JSONObject().put("id", id).put("k", kind).put("pkg", pkg ?: "")
         .put("p", page).put("x", x).put("y", y).put("w", w).put("h", h)
+        .put("name", name ?: "").put("ch", JSONArray(children))
 
     companion object {
-        fun fromJson(o: JSONObject) = HomeItem(
-            o.getString("id"), o.getString("k"), o.optString("pkg").ifEmpty { null },
-            o.getInt("p"), o.getInt("x"), o.getInt("y"), o.getInt("w"), o.getInt("h")
-        )
+        fun fromJson(o: JSONObject): HomeItem {
+            val ch = ArrayList<String>()
+            o.optJSONArray("ch")?.let { a -> for (i in 0 until a.length()) ch += a.getString(i) }
+            return HomeItem(
+                o.getString("id"), o.getString("k"), o.optString("pkg").ifEmpty { null },
+                o.getInt("p"), o.getInt("x"), o.getInt("y"), o.getInt("w"), o.getInt("h"),
+                o.optString("name").ifEmpty { null }, ch
+            )
+        }
     }
 }
 
 /** Раскладка главного экрана: страницы, Dock, свои названия. Хранится в SharedPreferences. */
-class HomeModel(ctx: Context) {
+class HomeModel private constructor(ctx: Context) {
     private val prefs = ctx.getSharedPreferences("skyos_home", Context.MODE_PRIVATE)
     val items = ArrayList<HomeItem>()
     val dock = ArrayList<String>()
@@ -38,21 +48,110 @@ class HomeModel(ctx: Context) {
         private set
     private var loaded = false
 
-    companion object { const val DOCK_MAX = 5 }
+    companion object {
+        const val DOCK_MAX = 5
+        private const val LAYOUT_VER = 4
+        private var inst: HomeModel? = null
+        fun get(ctx: Context): HomeModel = inst ?: HomeModel(ctx.applicationContext).also { inst = it }
+    }
 
     fun newId(): String = UUID.randomUUID().toString().substring(0, 8)
 
     fun sync(all: List<AppEntry>) {
         apps = all.associateBy { it.pkg }
-        if (!loaded) { loaded = true; if (!restore()) defaults() }
+        if (!loaded) { loaded = true; if (!restore()) defaults(); migrate() }
         items.removeAll { it.isApp && it.pkg !in apps }
+        items.filter { it.isFolder }.forEach { f -> f.children.retainAll { it in apps } }
+        for (f in items.filter { it.isFolder && it.children.size < 2 }) dissolve(f)
         dock.retainAll { it in apps }
         while (dock.size > DOCK_MAX) dock.removeAt(dock.size - 1)
+        val placed = HashSet<String>()
+        placed += dock
+        items.forEach { it.pkg?.let { p -> placed += p }; placed += it.children }
         for (a in all) {
-            if (a.pkg !in dock && items.none { it.pkg == a.pkg })
-                place(HomeItem(newId(), "app", a.pkg, 0, 0, 0, 1, 1))
+            if (a.pkg !in placed) place(HomeItem(newId(), "app", a.pkg, 0, 0, 0, 1, 1))
         }
         compact(); save()
+    }
+
+    private fun migrate() {
+        val v = prefs.getInt("layout_ver", 0)
+        if (v >= LAYOUT_VER) return
+        if (v in 1 until LAYOUT_VER || items.isNotEmpty()) {
+            // погода стала компактнее: 3×1 вместо 4×2
+            items.filter { (it.kind == "weather") && it.w == 4 && it.h == 2 }.forEach { it.w = 3; it.h = 1 }
+            fillGaps()
+        }
+        prefs.edit().putInt("layout_ver", LAYOUT_VER).apply()
+    }
+
+    /** Сдвигает иконки так, чтобы не было пустых мест (как в iOS). */
+    fun fillGaps() {
+        val movable = items.filter { it.isIcon }.sortedWith(compareBy({ it.page }, { it.y }, { it.x }))
+        items.removeAll(movable.toSet())
+        for (m in movable) place(m, 0)
+        compact()
+    }
+
+    fun resetLayout() {
+        items.clear(); dock.clear(); labels.clear()
+        defaults()
+        val all = apps.values.toList().sortedBy { it.label.lowercase() }
+        val s = all.firstOrNull { it.special != null }
+        sync((listOfNotNull(s) + all.filter { it.special == null }))
+    }
+
+    /** Меняет размер виджета, мешающие элементы переезжают. */
+    fun resize(item: HomeItem, w: Int, h: Int) {
+        item.w = w; item.h = h
+        if (item.x + w > COLS) item.x = COLS - w
+        if (item.y + h > ROWS) item.y = ROWS - h
+        for (o in overlapping(item)) place(o, item.page)
+        compact(); save()
+    }
+
+    // ---------- Папки ----------
+
+    fun folderName(pkgs: List<String>): String {
+        val cats = pkgs.mapNotNull { apps[it]?.category }.distinct()
+        if (cats.size == 1) when (cats[0]) {
+            android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> return "Видео"
+            android.content.pm.ApplicationInfo.CATEGORY_AUDIO -> return "Музыка"
+            android.content.pm.ApplicationInfo.CATEGORY_GAME -> return "Игры"
+            android.content.pm.ApplicationInfo.CATEGORY_IMAGE -> return "Фото"
+            android.content.pm.ApplicationInfo.CATEGORY_SOCIAL -> return "Общение"
+            android.content.pm.ApplicationInfo.CATEGORY_NEWS -> return "Новости"
+            android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY -> return "Работа"
+        }
+        return "Папка"
+    }
+
+    fun makeFolder(target: HomeItem, app: HomeItem): HomeItem {
+        val pk = listOfNotNull(target.pkg, app.pkg)
+        val f = HomeItem(newId(), "folder", null, target.page, target.x, target.y, 1, 1, folderName(pk), pk.toMutableList())
+        items.remove(target); items.remove(app); items += f
+        return f
+    }
+
+    fun addToFolder(f: HomeItem, app: HomeItem) {
+        app.pkg?.let { if (it !in f.children) f.children += it }
+        items.remove(app)
+    }
+
+    fun removeFromFolder(f: HomeItem, pkg: String) {
+        f.children.remove(pkg)
+        place(HomeItem(newId(), "app", pkg, 0, 0, 0, 1, 1), f.page)
+        if (f.children.size < 2) dissolve(f)
+        compact(); save()
+    }
+
+    /** Распаковать папку: приложения возвращаются на экран. */
+    fun dissolve(f: HomeItem) {
+        items.remove(f)
+        f.children.forEachIndexed { i, pkg ->
+            val it = HomeItem(newId(), "app", pkg, f.page, f.x, f.y, 1, 1)
+            if (i == 0 && free(f.page, f.x, f.y, 1, 1, null)) items += it else place(it, f.page)
+        }
     }
 
     private fun defaults() {
@@ -61,7 +160,7 @@ class HomeModel(ctx: Context) {
         if (dock.size < DOCK_MAX) dock += AppRepository.SETTINGS
         items += HomeItem(newId(), "clock", null, 0, 0, 0, 3, 1)
         items += HomeItem(newId(), "calendar", null, 0, 3, 0, 1, 1)
-        items += HomeItem(newId(), "weather", null, 0, 4, 0, 4, 2)
+        items += HomeItem(newId(), "weather", null, 0, 4, 0, 3, 1)
     }
 
     fun free(p: Int, x: Int, y: Int, w: Int, h: Int, ignore: HomeItem?): Boolean =
@@ -131,7 +230,7 @@ class PageView(ctx: Context) : ViewGroup(ctx) {
 
     init { clipChildren = false; clipToPadding = false }
 
-    private fun gapFor(item: HomeItem) = if (item.isApp) 0 else gap
+    private fun gapFor(item: HomeItem) = if (item.isIcon) 0 else gap
 
     override fun onMeasure(ws: Int, hs: Int) {
         val w = MeasureSpec.getSize(ws); val h = MeasureSpec.getSize(hs)

@@ -58,15 +58,27 @@ jobs:
             ${{ env.DIR }}/app/build/reports/tests/
           if-no-files-found: ignore
 
-      - name: Rename APK
-        run: cp "${{ env.DIR }}/app/build/outputs/apk/debug/app-debug.apk" SkyLauncher.apk
+      - name: Rename APK + version.json
+        run: |
+          cp "${{ env.DIR }}/app/build/outputs/apk/debug/app-debug.apk" SkyLauncher.apk
+          NOTES="$(git log -1 --pretty=%s)"
+          python3 - "$NOTES" <<'PY'
+          import json, os, sys
+          run = int(os.environ["GITHUB_RUN_NUMBER"])
+          json.dump({"code": 100 + run, "name": f"3.1.{run}", "notes": sys.argv[1],
+                     "url": "https://github.com/H1rka-afk/sky-launcher/releases/download/latest/SkyLauncher.apk"},
+                    open("version.json", "w"), ensure_ascii=False)
+          PY
+          cat version.json
 
       # Публикуем в релиз "latest" — получаем прямую ссылку для Downloader на ТВ
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Sky OS
-          files: SkyLauncher.apk
+          files: |
+            SkyLauncher.apk
+            version.json
           make_latest: true
 
       # Скриншоты интерфейса — отдельным релизом (для проверки дизайна)

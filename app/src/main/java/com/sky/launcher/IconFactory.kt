@@ -39,6 +39,25 @@ object IconFactory {
         return p
     }
 
+    fun clear() = cache.clear()
+
+    /** Иконка папки: стекло + до 9 мини‑иконок, как в iOS. */
+    fun folder(ctx: Context, apps: List<AppEntry>, size: Int): Bitmap {
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x59FFFFFF }
+        c.drawPath(squircle(size.toFloat()), bg)
+        val pad = size * 0.13f; val gap = size * 0.06f
+        val cell = ((size - 2 * pad - 2 * gap) / 3f)
+        val p = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+        apps.take(9).forEachIndexed { i, a ->
+            val x = pad + (i % 3) * (cell + gap); val y = pad + (i / 3) * (cell + gap)
+            val b = get(ctx, a, cell.toInt().coerceAtLeast(8))
+            c.drawBitmap(b, null, android.graphics.RectF(x, y, x + cell, y + cell), p)
+        }
+        return bmp
+    }
+
     fun get(ctx: Context, app: AppEntry, size: Int): Bitmap =
         cache.getOrPut(app.pkg + "@" + size) { render(ctx, app, size) }
 

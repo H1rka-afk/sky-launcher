@@ -42,12 +42,13 @@ class RoundToggle(ctx: Context, icon: Int, private val onColor: Int) : FrameLayo
 }
 
 /** Квадратная плитка 1×1. */
-class CcTile(ctx: Context, icon: Int) : FrameLayout(ctx) {
+class CcTile(ctx: Context, icon: Int, bitmap: android.graphics.Bitmap? = null) : FrameLayout(ctx) {
     var onFocused: (() -> Unit)? = null
     init {
         isFocusable = true; isClickable = true
-        val img = ImageView(ctx).apply { setImageResource(icon) }
-        addView(img, LayoutParams(ctx.dpi(30), ctx.dpi(30), Gravity.CENTER))
+        val img = ImageView(ctx).apply { if (bitmap != null) setImageBitmap(bitmap) else setImageResource(icon) }
+        val sz = ctx.dpi(if (bitmap != null) 44 else 30)
+        addView(img, LayoutParams(sz, sz, Gravity.CENTER))
         background = Ui.round(ctx, 24f, Ui.GLASS)
         Ui.zoomOnFocus(this, 1.08f) { f ->
             background = if (f) Ui.round(ctx, 24f, Ui.GLASS_FOCUS, Color.WHITE, 2.5f) else Ui.round(ctx, 24f, Ui.GLASS)
@@ -128,6 +129,8 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
     private val muteB = RoundToggle(act, R.drawable.ic_volume_off, Ui.RED)
     private val sleepB = RoundToggle(act, R.drawable.ic_moon, Ui.PURPLE)
     private val vol = VolumeSlider(act)
+    private val slotCol = LinearLayout(act)
+    private val rows = LinearLayout(act)
     private var btArmed = 0L
     private var closing = false
     private val am = Sys.audio(act)
@@ -165,24 +168,14 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
         conn.addView(pair(muteB, sleepB), lp().apply { topMargin = act.dpi(18) })
         rowA.addView(conn, LinearLayout.LayoutParams(2 * u + g, 2 * u + g))
         rowA.addView(vol, LinearLayout.LayoutParams(u, 2 * u + g).apply { marginStart = g })
-        val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; clipChildren = false }
-        col.addView(tile(R.drawable.ic_image, "Обои") { act.sheet.showWallpapers() }, LinearLayout.LayoutParams(u, u))
-        col.addView(tile(R.drawable.ic_tv, "Экран и изображение") { act.safeStart(Intent(Settings.ACTION_DISPLAY_SETTINGS)) },
-            LinearLayout.LayoutParams(u, u).apply { topMargin = g })
-        rowA.addView(col, LinearLayout.LayoutParams(u, 2 * u + g).apply { marginStart = g })
+        slotCol.orientation = LinearLayout.VERTICAL; slotCol.clipChildren = false
+        rowA.addView(slotCol, LinearLayout.LayoutParams(u, 2 * u + g).apply { marginStart = g })
         panel.addView(rowA)
 
-        // Ряд B: быстрые действия
-        val rowB = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-        listOf(
-            tile(R.drawable.ic_gear, "Настройки") { act.safeStart(Intent(Settings.ACTION_SETTINGS)) },
-            tile(R.drawable.ic_input, "Источник сигнала (HDMI)") { act.sheet.showInputs() },
-            tile(R.drawable.ic_wifi, "Сеть и интернет") { act.safeStart(Intent(Settings.ACTION_WIFI_SETTINGS)) },
-            tile(R.drawable.ic_apps, "Управление приложениями") { act.safeStart(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) },
-        ).forEachIndexed { i, t ->
-            rowB.addView(t, LinearLayout.LayoutParams(u, u).apply { if (i > 0) marginStart = g })
-        }
-        panel.addView(rowB, lp().apply { topMargin = g })
+        // Настраиваемые плитки (Настройки Sky OS → Пункт управления)
+        rows.orientation = LinearLayout.VERTICAL; rows.clipChildren = false
+        panel.addView(rows, lp())
+        rebuildTiles()
 
         caption.gravity = Gravity.CENTER
         panel.addView(caption, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -252,6 +245,59 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
         setOnClickListener { action() }
     }
 
+    /** Перестраивает плитки по списку из настроек. */
+    fun rebuildTiles() {
+        slotCol.removeAllViews(); rows.removeAllViews()
+        val ids = Prefs.ccTiles.take(CcTiles.MAX)
+        ids.forEachIndexed { i, id ->
+            val t = makeTile(id) ?: return@forEachIndexed
+            if (i < 2) {
+                slotCol.addView(t, LinearLayout.LayoutParams(u, u).apply { if (i > 0) topMargin = g })
+            } else {
+                val k = i - 2
+                if (k % 4 == 0) rows.addView(LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false },
+                    lp().apply { topMargin = g })
+                val row = rows.getChildAt(rows.childCount - 1) as LinearLayout
+                row.addView(t, LinearLayout.LayoutParams(u, u).apply { if (k % 4 > 0) marginStart = g })
+            }
+        }
+    }
+
+    private fun makeTile(id: String): CcTile? {
+        if (id.startsWith("app:")) {
+            val pkg = id.removePrefix("app:")
+            val a = act.model.apps[pkg] ?: return null
+            return CcTile(act, 0, IconFactory.get(act, a, act.dpi(44))).apply {
+                onFocused = { caption.text = "Открыть «${act.model.label(pkg)}»" }
+                setOnClickListener { hide(); act.launchPkg(pkg) }
+            }
+        }
+        val d = CcTiles.get(id) ?: return null
+        return CcTile(act, d.icon).apply {
+            onFocused = { caption.text = if (id == "timer") act.timerCaption() else d.name }
+            setOnClickListener { runTile(id) }
+        }
+    }
+
+    private fun runTile(id: String) {
+        when (id) {
+            "wallpaper" -> act.sheet.showWallpapers()
+            "sky_settings" -> { hide(); act.openSettings() }
+            "tv_settings" -> act.safeStart(Intent(Settings.ACTION_SETTINGS))
+            "display" -> act.safeStart(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+            "input" -> act.sheet.showInputs()
+            "network" -> act.sheet.showWifi()
+            "apps" -> act.safeStart(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
+            "timer" -> act.showSleepTimer()
+            "screenshot" -> { hide(); postDelayed({ act.screenshot() }, 600) }
+            "weather" -> { WeatherData.refresh(act, true); caption.text = "Погода обновляется…" }
+            "update" -> { hide(); act.openSettings("update") }
+            "bt_devices" -> act.safeStart(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+            "accessibility" -> act.safeStart(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            "widget" -> { hide(); act.widgetPicker() }
+        }
+    }
+
     fun refresh() {
         bigTime.text = now("H:mm")
         bigDate.text = now("EEEE, d MMMM").replaceFirstChar { it.uppercase() }
@@ -290,4 +336,28 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
             act.overlayClosed(this)
         }.start()
     }
+}
+
+class TileDef(val id: String, val name: String, val icon: Int)
+
+/** Все плитки, которые можно добавить в Пункт управления. */
+object CcTiles {
+    const val MAX = 10
+    val all = listOf(
+        TileDef("wallpaper", "Обои", R.drawable.ic_image),
+        TileDef("sky_settings", "Настройки Sky OS", R.drawable.ic_gear),
+        TileDef("tv_settings", "Настройки телевизора", R.drawable.ic_tune),
+        TileDef("display", "Экран и изображение", R.drawable.ic_tv),
+        TileDef("input", "Источник сигнала (HDMI)", R.drawable.ic_input),
+        TileDef("network", "Выбор сети Wi‑Fi", R.drawable.ic_wifi),
+        TileDef("timer", "Таймер сна", R.drawable.ic_timer),
+        TileDef("screenshot", "Снимок экрана", R.drawable.ic_crop),
+        TileDef("apps", "Управление приложениями", R.drawable.ic_apps),
+        TileDef("weather", "Обновить погоду", R.drawable.ic_weather),
+        TileDef("update", "Обновление ПО", R.drawable.ic_refresh),
+        TileDef("bt_devices", "Устройства Bluetooth", R.drawable.ic_bt),
+        TileDef("accessibility", "Спец. возможности", R.drawable.ic_info),
+        TileDef("widget", "Добавить виджет", R.drawable.ic_add),
+    )
+    fun get(id: String) = all.firstOrNull { it.id == id }
 }
