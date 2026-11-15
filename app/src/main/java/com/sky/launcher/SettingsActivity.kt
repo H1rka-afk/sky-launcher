@@ -67,6 +67,7 @@ class SettingsActivity : Activity() {
         Section("drop", "Sky Drop", R.drawable.ic_input, 0xFF0A84FF.toInt()),
         Section("passcode", "Код-пароль", R.drawable.ic_lock, Ui.RED),
         Section("notify", "Уведомления", R.drawable.ic_info, 0xFFFF3B30.toInt()),
+        Section("island", "Dynamic Island", R.drawable.ic_dock, 0xFF1C1C1E.toInt()),
         Section("wallpaper", "Обои", R.drawable.ic_image, 0xFF32ADE6.toInt()),
         Section("home", "Главный экран", R.drawable.ic_apps, Ui.PURPLE),
         Section("cc", "Пункт управления", R.drawable.ic_tune, 0xFF8E8E93.toInt()),
@@ -121,7 +122,8 @@ class SettingsActivity : Activity() {
         content = newContent()
         contentScroll.addView(content)
         root.addView(contentScroll, LinearLayout.LayoutParams(0, M, 1f))
-        setContentView(root)
+        frame = FrameLayout(this).apply { addView(root, FrameLayout.LayoutParams(M, M)) }
+        setContentView(frame)
 
         buildSidebar()
         val start = intent.getStringExtra(EXTRA_SECTION) ?: "about"
@@ -131,8 +133,18 @@ class SettingsActivity : Activity() {
         WeatherData.onUpdate = { if (current == "weather") rebuild() }
     }
 
+    private lateinit var frame: FrameLayout
+
+    override fun onPause() {
+        super.onPause()
+        if (Notify.activityHost === frame) Notify.activityHost = null
+        Island.hostChanged()
+    }
+
     override fun onResume() {
         super.onResume()
+        Notify.activityHost = frame
+        Island.hostChanged()
         if (current == "access" || current == "wifi" || current == "bluetooth") rebuild()
     }
 
@@ -184,7 +196,7 @@ class SettingsActivity : Activity() {
         card.addView(t, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(14) })
         sidebar.addView(card, LinearLayout.LayoutParams(M, W).apply { bottomMargin = dpi(18) })
 
-        val groups = listOf(listOf("about", "update"), listOf("drop", "passcode", "notify"), listOf("wallpaper", "home", "cc", "weather"),
+        val groups = listOf(listOf("about", "update"), listOf("drop", "passcode", "notify", "island"), listOf("wallpaper", "home", "cc", "weather"),
             listOf("wifi", "bluetooth", "display", "access"), listOf("tv"))
         for (g in groups) {
             val box = group(sidebar)
@@ -344,6 +356,7 @@ class SettingsActivity : Activity() {
             "passcode" -> passcode()
             "drop" -> drop()
             "notify" -> notifications()
+            "island" -> island()
             "update" -> update()
             "wallpaper" -> wallpaper()
             "home" -> home()
@@ -489,6 +502,27 @@ class SettingsActivity : Activity() {
             }
             val g4 = group(content)
             item(g4, "Очистить", color = Ui.RED, last = true) { Notify.history.clear(); rebuild() }
+        }
+    }
+
+    private fun island() {
+        header("Dynamic Island", "Чёрная «пилюля» сверху экрана, как на iPhone.")
+        val g = group(content)
+        toggle(g, "Dynamic Island", { Prefs.island }) { Prefs.island = it; rebuild() }
+        footer("В островке показываются уведомления, таймер сна, Sky Drop, загрузка обновления, подключение Wi‑Fi и Bluetooth, " +
+            "заряд пульта и снимки экрана. Поверх других приложений — когда включена служба Sky OS.")
+        if (Prefs.island) {
+            val g2 = group(content)
+            toggle(g2, "Громкость в островке", { Prefs.islandVolume }) { Prefs.islandVolume = it }
+            footer("Кнопки громкости показывают уровень в островке вместо полоски телевизора. " +
+                "Если появляются две полоски или громкость перестала меняться — выключите.")
+            val g3 = group(content)
+            item(g3, "Показать уведомление", color = Ui.BLUE) {
+                Notify.post(this, "Привет от Sky OS", "Так уведомления выглядят в Dynamic Island", keep = false)
+            }
+            item(g3, "Показать громкость", color = Ui.BLUE, last = true) {
+                (getSystemService(AUDIO_SERVICE) as? android.media.AudioManager)?.let { IslandEvents.showVolume(it) }
+            }
         }
     }
 

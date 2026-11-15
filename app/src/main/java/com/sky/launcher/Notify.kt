@@ -47,6 +47,7 @@ object Notify {
             while (history.size > 20) history.removeAt(history.size - 1)
             onHistory?.invoke()
         }
+        if (Prefs.island) { Island.notification(item); return }   // в Dynamic Island вместо баннера
         queue.addLast(item)
         if (!showing) next(ctx.applicationContext)
     }

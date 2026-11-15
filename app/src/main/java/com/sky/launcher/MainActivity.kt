@@ -205,6 +205,7 @@ class MainActivity : Activity() {
         updateBadges()
         Kiosk.enterIfOwner(this)
         Notify.activityHost = root
+        Island.hostChanged()
         if (Lock.locked && !LockActivity.visible) Lock.lockNow(this)
         lastInput = SystemClock.uptimeMillis()
         handler.removeCallbacks(idleCheck); handler.postDelayed(idleCheck, 30_000)
@@ -216,6 +217,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(tick)
         handler.removeCallbacks(idleCheck)
         if (Notify.activityHost === root) Notify.activityHost = null
+        Island.hostChanged()
     }
 
     override fun onRestart() {
@@ -353,6 +355,8 @@ class MainActivity : Activity() {
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
         val code = e.keyCode
+        // служба Sky OS выключена — громкость в островке хотя бы на главном экране
+        if (HomeInterceptService.instance == null && IslandEvents.volumeKey(this, e)) return true
         if (moving != null && !sheet.open && !cc.open) {
             val handled = when (code) {
                 KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP,
@@ -661,7 +665,24 @@ class MainActivity : Activity() {
     // ---------- Таймер сна и снимок экрана ----------
 
     private var sleepAt = 0L
-    private val sleepRunnable = Runnable { sleepAt = 0L; sleepNow() }
+    private val sleepRunnable = Runnable { sleepAt = 0L; Island.setLive("timer", null); sleepNow() }
+
+    /** Таймер сна в островке: луна и сколько осталось; за минуту — предупреждение. */
+    private val timerIsland = object : Runnable {
+        override fun run() {
+            if (sleepAt == 0L) { Island.setLive("timer", null); return }
+            val leftMs = sleepAt - System.currentTimeMillis()
+            val left = (leftMs / 60_000L).coerceAtLeast(0) + 1
+            Island.setLive("timer", Island.Content(icon = R.drawable.ic_moon, title = "", right = "$left мин", tint = 0xFFFF9F0A.toInt()))
+            if (leftMs in 1..60_000L && !timerWarned) {
+                timerWarned = true
+                Island.message("Телевизор уснёт через минуту", "Пункт управления → Таймер сна, чтобы продлить",
+                    R.drawable.ic_moon, 0xFFFF9F0A.toInt(), 8000)
+            }
+            handler.postDelayed(this, if (leftMs > 90_000L) 30_000L else 5_000L)
+        }
+    }
+    private var timerWarned = false
 
     fun timerCaption(): String {
         if (sleepAt == 0L) return "Таймер сна · выключен"
@@ -674,11 +695,18 @@ class MainActivity : Activity() {
         sheet.showList(timerCaption(), opts.map { m ->
             SheetItem(if (m == 0) "Выключить таймер" else "$m минут", R.drawable.ic_timer) {
                 handler.removeCallbacks(sleepRunnable)
-                if (m == 0) { sleepAt = 0L; toast("Таймер сна выключен") }
-                else {
+                handler.removeCallbacks(timerIsland)
+                timerWarned = false
+                if (m == 0) {
+                    sleepAt = 0L; Island.setLive("timer", null)
+                    if (Prefs.island) Island.message("Таймер сна выключен", null, R.drawable.ic_moon, 0xFF8E8E93.toInt()) else toast("Таймер сна выключен")
+                } else {
                     sleepAt = System.currentTimeMillis() + m * 60_000L
                     handler.postDelayed(sleepRunnable, m * 60_000L)
-                    toast("Телевизор уснёт через $m мин")
+                    if (Prefs.island) {
+                        Island.message("Таймер сна: $m мин", "Телевизор уснёт в ${java.text.SimpleDateFormat("H:mm").format(java.util.Date(sleepAt))}", R.drawable.ic_moon, 0xFFFF9F0A.toInt())
+                        handler.postDelayed(timerIsland, 2800)
+                    } else toast("Телевизор уснёт через $m мин")
                 }
             }
         })
@@ -694,7 +722,10 @@ class MainActivity : Activity() {
     fun screenshot() {
         val svc = HomeInterceptService.instance
         if (svc != null && android.os.Build.VERSION.SDK_INT >= 28)
+        {
             svc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)
+            Island.message("Снимок экрана сохранён", "Галерея → Screenshots", R.drawable.ic_crop)
+        }
         else toast("Для снимка экрана включите Sky OS в «Спец. возможностях»")
     }
 

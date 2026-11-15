@@ -120,6 +120,7 @@ object Updater {
         installAfterDownload = install
         progress = 0; onChange?.invoke()
         val app = ctx.applicationContext
+        Island.setLive("update", Island.Content(icon = R.drawable.ic_refresh, title = "Обновление", ring = 0f, right = "0%"))
         Thread {
             try {
                 val file = apkFile(app)
@@ -134,13 +135,18 @@ object Updater {
                             val n = inp.read(buf); if (n < 0) break
                             out.write(buf, 0, n); done += n
                             val pct = if (total > 0) (done * 100 / total).toInt() else 50
-                            if (pct >= last + 5 || pct == 100) { last = pct; main.post { progress = pct; onChange?.invoke() } }
+                            if (pct >= last + 5 || pct == 100) {
+                                last = pct
+                                main.post { progress = pct; onChange?.invoke() }
+                                Island.setLive("update", Island.Content(icon = R.drawable.ic_refresh, title = "Обновление", ring = pct / 100f, right = "$pct%"))
+                            }
                         }
                     }
                 }
                 c.disconnect()
                 file.delete(); part.renameTo(file)
                 app.getSharedPreferences("skyos_settings", Context.MODE_PRIVATE).edit().putInt("update_ready_code", info.code).apply()
+                Island.setLive("update", null)
                 main.post {
                     progress = -1
                     onChange?.invoke()
@@ -149,6 +155,7 @@ object Updater {
                     installAfterDownload = false
                 }
             } catch (e: Exception) {
+                Island.setLive("update", null)
                 main.post {
                     progress = -1; lastError = e.message ?: e.javaClass.simpleName
                     if (installAfterDownload) Toast.makeText(app, "Ошибка загрузки: $lastError", Toast.LENGTH_LONG).show()

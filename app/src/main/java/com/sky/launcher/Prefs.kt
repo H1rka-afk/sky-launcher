@@ -66,6 +66,14 @@ object Prefs {
         set(v) = p.edit().putBoolean("pin_reminder", v).apply()
 
     // ---- Уведомления ----
+    var island: Boolean
+        get() = p.getBoolean("island", true)
+        set(v) = p.edit().putBoolean("island", v).apply()
+
+    var islandVolume: Boolean
+        get() = p.getBoolean("island_volume", true)
+        set(v) = p.edit().putBoolean("island_volume", v).apply()
+
     var appNotifications: Boolean
         get() = p.getBoolean("app_notifications", true)
         set(v) = p.edit().putBoolean("app_notifications", v).apply()

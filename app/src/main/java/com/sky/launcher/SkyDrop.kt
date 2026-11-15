@@ -152,6 +152,8 @@ object SkyDrop {
             if (s.method == Method.GET) return html(DropPage.page(Prefs.dropKey))
             if (s.method != Method.POST) return text("?")
             return try {
+                val from0 = s.headers["user-agent"]?.let { if ("iPhone" in it) "iPhone" else if ("iPad" in it) "iPad" else "телефона" } ?: "телефона"
+                Island.show(Island.Content(icon = R.drawable.ic_input, title = "Sky Drop", sub = "Приём с $from0…", ring = -1f, expanded = true), 120_000)
                 val files = HashMap<String, String>()
                 s.parseBody(files)
                 val names = s.parameters["file"] ?: emptyList()
@@ -174,11 +176,12 @@ object SkyDrop {
                 // текст / ссылка
                 s.parameters["text"]?.firstOrNull()?.takeIf { it.isNotBlank() }?.let { items += Item("text", "Текст", null, it) }
                 files["postData"]?.takeIf { it.isNotBlank() && !it.startsWith("/") }?.let { items += Item("text", "Текст", null, it) }
-                if (items.isEmpty()) return text("Нечего отправлять")
+                if (items.isEmpty()) { Island.message("Sky Drop", "Нечего принимать", R.drawable.ic_input); return text("Нечего отправлять") }
                 val from = s.headers["user-agent"]?.let { if ("iPhone" in it) "iPhone" else if ("iPad" in it) "iPad" else "Телефон" } ?: "Телефон"
                 incoming(ctx, items, from)
                 text("Отправлено на телевизор ✓")
             } catch (e: Exception) {
+                Island.message("Sky Drop: ошибка", e.message, R.drawable.ic_input, 0xFFFF453A.toInt())
                 newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain; charset=utf-8", "Ошибка: ${e.message}")
             }
         }

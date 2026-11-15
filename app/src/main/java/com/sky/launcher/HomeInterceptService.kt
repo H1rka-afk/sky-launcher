@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -36,6 +37,7 @@ class HomeInterceptService : AccessibilityService() {
             .filter { it != packageName && it != "com.android.settings" && it != "com.android.tv.settings" }
             .toSet()
         try { registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON)) } catch (e: Exception) {}
+        IslandEvents.register(this)
         SkyDrop.start(this)
         openLauncher()
     }
@@ -78,10 +80,14 @@ class HomeInterceptService : AccessibilityService() {
         )
     }
 
+    /** Кнопки громкости: громкость меняем сами и показываем в островке вместо полоски телевизора. */
+    override fun onKeyEvent(event: KeyEvent): Boolean = IslandEvents.volumeKey(this, event)
+
     override fun onInterrupt() {}
 
     override fun onDestroy() {
         try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
+        IslandEvents.unregister(this)
         instance = null
         super.onDestroy()
     }

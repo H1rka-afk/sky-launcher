@@ -138,6 +138,34 @@ class ScreenshotTest {
     }
 
     @Test
+    fun island() {
+        val act = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        idle(800)
+        Island.volume(9, 15, false); idle(600)
+        act.window.decorView.captureRoboImage("build/shots/19_island_volume.png")
+        val ev = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP)
+        org.junit.Assert.assertTrue(IslandEvents.volumeKey(act, ev))
+        idle(3000)
+        Notify.post(act, "Мама", "Ты сегодня приедешь на ужин?", "test.app0", "YouTube",
+            IconFactory.get(act, act.model.apps["test.app0"]!!, act.dpi(42)))
+        idle(600)
+        act.window.decorView.captureRoboImage("build/shots/20_island_notification.png")
+        idle(5000)
+        Island.setLive("timer", Island.Content(icon = R.drawable.ic_moon, title = "", right = "42 мин", tint = 0xFFFF9F0A.toInt()))
+        idle(600)
+        act.window.decorView.captureRoboImage("build/shots/21_island_timer.png")
+        Island.setLive("update", Island.Content(icon = R.drawable.ic_refresh, title = "Обновление", ring = 0.6f, right = "60%"))
+        idle(600)
+        act.window.decorView.captureRoboImage("build/shots/22_island_update.png")
+        Island.setLive("update", null); Island.setLive("timer", null); idle(600)
+        val i = Intent(org.robolectric.RuntimeEnvironment.getApplication(), SettingsActivity::class.java)
+            .putExtra(SettingsActivity.EXTRA_SECTION, "island")
+        val a = Robolectric.buildActivity(SettingsActivity::class.java, i).setup().get()
+        idle(500)
+        a.window.decorView.captureRoboImage("build/shots/s_island.png")
+    }
+
+    @Test
     fun settings() {
         for (sec in listOf("about", "update", "cc", "wallpaper", "weather")) {
             val i = Intent(org.robolectric.RuntimeEnvironment.getApplication(), SettingsActivity::class.java)
