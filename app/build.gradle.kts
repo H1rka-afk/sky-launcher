@@ -45,5 +45,8 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     systemProperty("roborazzi.test.record", "true")
-    testLogging { showStandardStreams = true }
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
