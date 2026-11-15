@@ -294,9 +294,9 @@ class MainActivity : Activity() {
         pageView = pv
         val w = pageHost.width.toFloat().coerceAtLeast(1f)
         pv.translationX = dir * w
-        pv.animate().translationX(0f).setDuration(320).setInterpolator(DecelerateInterpolator(2f))
+        pv.animate().translationX(0f).setDuration(300).setInterpolator(DecelerateInterpolator(2f)).withLayer()
             .withEndAction { pageHost.clipChildren = false }.start()
-        old?.animate()?.translationX(-dir * w)?.setDuration(320)?.setInterpolator(DecelerateInterpolator(2f))
+        old?.animate()?.translationX(-dir * w)?.setDuration(300)?.setInterpolator(DecelerateInterpolator(2f))?.withLayer()
             ?.withEndAction { pageHost.removeView(old) }?.start()
         renderDots()
         if (moving != null) { pv.post { highlightMove() }; return }
@@ -696,7 +696,22 @@ class MainActivity : Activity() {
         focusStack.add(currentFocus)
         if (overlay === sheet && cc.visibility == View.VISIBLE) cc.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         home.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
-        home.animate().alpha(0.07f).scaleX(0.94f).scaleY(0.94f).setDuration(260).start()
+        dimHome(true)
+    }
+
+    /** Затемнение главного экрана: через аппаратный слой — плавно даже на слабом ТВ. */
+    private fun dimHome(dim: Boolean) {
+        val a = if (dim) 0.07f else 1f
+        if (home.alpha == a && home.animation == null) return
+        home.animate().cancel()
+        home.animate().alpha(a).scaleX(if (dim) 0.95f else 1f).scaleY(if (dim) 0.95f else 1f)
+            .setDuration(170).withLayer().start()
+    }
+
+    /** Вызывается в начале закрытия: главный экран возвращается сразу, параллельно с анимацией. */
+    fun overlayClosing(overlay: View, chained: Boolean) {
+        val nothingLeft = if (overlay === sheet) cc.visibility != View.VISIBLE else sheet.visibility != View.VISIBLE
+        if (nothingLeft && !chained) dimHome(false)
     }
 
     fun overlayClosed(overlay: View) {
@@ -704,7 +719,7 @@ class MainActivity : Activity() {
             cc.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         } else if (cc.visibility != View.VISIBLE && sheet.visibility != View.VISIBLE) {
             home.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-            home.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(260).start()
+            handler.post { if (cc.visibility != View.VISIBLE && sheet.visibility != View.VISIBLE) dimHome(false) }
         }
         val f = if (focusStack.isEmpty()) null else focusStack.removeAt(focusStack.size - 1)
         (f?.takeIf { it.isAttachedToWindow && it.isShown } ?: firstFocus())?.requestFocus()

@@ -17,7 +17,20 @@ class Wallpaper(val name: String, val base: Int, val colors: IntArray, val photo
 
 /** Загрузка фото с уменьшением под нужную ширину + небольшой кэш. */
 object Photos {
-    private val cache = android.util.LruCache<String, Bitmap>(8)
+    /** Кэш по объёму памяти (48 МБ), чтобы превью не декодировались заново. */
+    private val cache = object : android.util.LruCache<String, Bitmap>(48 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
+    private val pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    fun cached(path: String, targetW: Int): Bitmap? = cache.get("$path@$targetW")
+
+    /** Декодирует в фоне и возвращает результат в главный поток. */
+    fun decodeAsync(ctx: Context, path: String, targetW: Int, done: (Bitmap?) -> Unit) {
+        val app = ctx.applicationContext
+        pool.execute { val b = decode(app, path, targetW); main.post { done(b) } }
+    }
 
     fun decode(ctx: Context, path: String, targetW: Int): Bitmap? {
         val key = "$path@$targetW"
@@ -144,10 +157,23 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
     private var photoBmp: Bitmap? = null
     private val m = android.graphics.Matrix()
 
+    private var loadingPhoto: String? = null
+
     private fun drawPhoto(canvas: Canvas): Boolean {
         val res = wallpaper.photo ?: return false
-        if (photoBmp == null) photoBmp = Photos.decode(context, res, if (animated) maxOf(width, 1280) else maxOf(width, 320))
-        val b = photoBmp ?: return false
+        if (photoBmp == null) {
+            if (animated) photoBmp = Photos.decode(context, res, maxOf(width, 1280))
+            else {
+                // превью: маленькая картинка, декодируется в фоне — меню не тормозит
+                val tw = 320
+                photoBmp = Photos.cached(res, tw)
+                if (photoBmp == null && loadingPhoto != res) {
+                    loadingPhoto = res
+                    Photos.decodeAsync(context, res, tw) { b -> if (wallpaper.photo == res) { photoBmp = b; invalidate() } }
+                }
+            }
+        }
+        val b = photoBmp ?: run { canvas.drawColor(0xFF1C1C1E.toInt()); return true }
         val s = maxOf(width / b.width.toFloat(), height / b.height.toFloat())
         m.setScale(s, s)
         m.postTranslate((width - b.width * s) / 2, (height - b.height * s) / 2)

@@ -50,10 +50,10 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
         visibility = VISIBLE
         if (!wasOpen) {
             act.overlayOpened(this)
-            scrim.alpha = 0f; scrim.animate().alpha(1f).setDuration(200).start()
+            scrim.alpha = 0f; scrim.animate().alpha(1f).setDuration(170).start()
         }
-        v.alpha = 0f; v.translationY = act.dp(40f)
-        v.animate().alpha(1f).translationY(0f).setDuration(280).setInterpolator(DecelerateInterpolator(2f)).start()
+        v.alpha = 0f; v.translationY = act.dp(30f)
+        v.animate().alpha(1f).translationY(0f).setDuration(200).setInterpolator(DecelerateInterpolator(2f)).withLayer().start()
         (focus ?: v).requestFocus()
     }
 
@@ -61,8 +61,9 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
         if (!open) return
         closing = true
         hideKeyboard()
-        card?.animate()?.alpha(0f)?.translationY(act.dp(30f))?.setDuration(180)?.start()
-        scrim.animate().alpha(0f).setDuration(200).withEndAction {
+        act.overlayClosing(this, then != null)
+        card?.animate()?.alpha(0f)?.translationY(act.dp(20f))?.setDuration(150)?.withLayer()?.start()
+        scrim.animate().alpha(0f).setDuration(160).withEndAction {
             visibility = GONE
             card?.let { removeView(it) }; card = null
             closing = false

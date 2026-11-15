@@ -79,6 +79,10 @@ class SettingsActivity : Activity() {
     private lateinit var repo: AppRepository
     private lateinit var sidebar: LinearLayout
     private lateinit var content: LinearLayout
+    private val cache = HashMap<String, LinearLayout>()
+    private val heavy = setOf("wallpaper", "cc", "home", "display")
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingShow: Runnable? = null
     private lateinit var contentScroll: ScrollView
     private val sideRows = HashMap<String, View>()
     private var current = ""
@@ -105,7 +109,7 @@ class SettingsActivity : Activity() {
         root.addView(sideScroll, LinearLayout.LayoutParams(dpi(330), M))
         // Содержимое
         contentScroll = ScrollView(this).apply { isVerticalScrollBarEnabled = false; clipToPadding = false }
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dpi(36), dpi(6), dpi(20), dpi(40)) }
+        content = newContent()
         contentScroll.addView(content)
         root.addView(contentScroll, LinearLayout.LayoutParams(0, M, 1f))
         setContentView(root)
@@ -137,9 +141,11 @@ class SettingsActivity : Activity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    private fun newContent() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dpi(36), dpi(6), dpi(20), dpi(40)) }
+
     private fun isInContent(v: View): Boolean {
         var p: Any? = v.parent
-        while (p is View) { if (p === content) return true; p = p.parent }
+        while (p is View) { if (p === contentScroll) return true; p = p.parent }
         return false
     }
 
@@ -186,7 +192,12 @@ class SettingsActivity : Activity() {
                     row.addView(updateBadge, LinearLayout.LayoutParams(dpi(22), dpi(22)).apply { marginEnd = dpi(8) })
                 }
                 row.addView(chevron())
-                row.setOnFocusChangeListener { v, f -> highlight(v, f, i == g.size - 1); if (f && id != "tv") show(id) }
+                row.setOnFocusChangeListener { v, f ->
+                    highlight(v, f, i == g.size - 1)
+                    // раздел открывается, когда фокус задержался — быстрое листание меню не тормозит
+                    pendingShow?.let { handler.removeCallbacks(it) }
+                    if (f && id != "tv") { pendingShow = Runnable { show(id) }.also { handler.postDelayed(it, 160) } }
+                }
                 row.setOnClickListener {
                     if (id == "tv") safeStart(Intent(Settings.ACTION_SETTINGS))
                     else { show(id); content.post { firstFocusable(content)?.requestFocus() } }
@@ -278,7 +289,7 @@ class SettingsActivity : Activity() {
         r.addView(Ui.text(this, 17f, Color.WHITE, Ui.regular, false).apply { text = title }, LinearLayout.LayoutParams(0, W, 1f))
         val sw = IosSwitch(this).apply { checked = get() }
         r.addView(sw, LinearLayout.LayoutParams(dpi(52), dpi(32)))
-        r.setOnClickListener { val v = !get(); set(v); sw.checked = v; changed = true }
+        r.setOnClickListener { val v = !get(); set(v); sw.checked = v; changed = true; cache.keys.retainAll(setOf(current)) }
     }
 
     // ---------------- Разделы ----------------
@@ -306,8 +317,13 @@ class SettingsActivity : Activity() {
     private fun show(id: String, force: Boolean = false) {
         if (id == current && !force) return
         current = id
-        content.removeAllViews()
+        val cached = if (!force && id in heavy) cache[id] else null
+        content = cached ?: newContent()
+        contentScroll.removeAllViews()
+        contentScroll.addView(content)
         if (!force) contentScroll.scrollTo(0, 0)
+        if (cached != null) return
+        if (id in heavy) cache[id] = content
         when (id) {
             "about" -> about()
             "update" -> update()
@@ -417,12 +433,12 @@ class SettingsActivity : Activity() {
                 background = Ui.oval(this@SettingsActivity, Ui.BLUE, Color.WHITE, 2f)
                 setPadding(dpi(4), dpi(4), dpi(4), dpi(4))
             }, FrameLayout.LayoutParams(dpi(24), dpi(24), Gravity.TOP or Gravity.END).apply { topMargin = dpi(6); marginEnd = dpi(6) })
-            cell.addView(frame, LinearLayout.LayoutParams(dpi(170), dpi(96)))
-            cell.addView(Ui.text(this, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false).apply { text = w.name },
+            cell.addView(frame, LinearLayout.LayoutParams(dpi(146), dpi(82)))
+            cell.addView(Ui.text(this, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false).apply { text = w.name; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER },
                 LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(6) })
             Ui.zoomOnFocus(cell, 1.06f) { f -> frame.foreground = if (f) Ui.round(this, 12f, 0, Color.WHITE, 3f) else null }
             cell.setOnClickListener { repo.wallpaper = i; changed = true; rebuild() }
-            row!!.addView(cell, LinearLayout.LayoutParams(W, W).apply { if (i % 3 > 0) marginStart = dpi(16) })
+            row!!.addView(cell, LinearLayout.LayoutParams(dpi(146), W).apply { if (i % 3 > 0) marginStart = dpi(14) })
         }
     }
 

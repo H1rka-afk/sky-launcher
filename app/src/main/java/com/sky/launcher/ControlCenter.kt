@@ -323,15 +323,16 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
         panel.alpha = 0f; panel.scaleX = 0.94f; panel.scaleY = 0.94f; panel.translationY = -act.dp(18f)
         panel.pivotX = act.dp(380f); panel.pivotY = 0f
         panel.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-            .setDuration(300).setInterpolator(DecelerateInterpolator(2f)).start()
+            .setDuration(220).setInterpolator(DecelerateInterpolator(2f)).withLayer().start()
         wifiB.requestFocus()
     }
 
     fun hide() {
         if (!open) return
         closing = true
-        panel.animate().alpha(0f).scaleX(0.96f).scaleY(0.96f).translationY(-act.dp(10f)).setDuration(180).start()
-        scrim.animate().alpha(0f).setDuration(200).withEndAction {
+        act.overlayClosing(this, false)
+        panel.animate().alpha(0f).scaleX(0.96f).scaleY(0.96f).translationY(-act.dp(10f)).setDuration(150).withLayer().start()
+        scrim.animate().alpha(0f).setDuration(160).withEndAction {
             visibility = GONE; closing = false
             act.overlayClosed(this)
         }.start()
