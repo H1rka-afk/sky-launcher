@@ -129,6 +129,9 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
     private val muteB = RoundToggle(act, R.drawable.ic_volume_off, Ui.RED)
     private val sleepB = RoundToggle(act, R.drawable.ic_moon, Ui.PURPLE)
     private val vol = VolumeSlider(act)
+    private var movingId: String? = null
+    private var moveBackup: List<String> = emptyList()
+    private val wiggles = ArrayList<android.animation.ValueAnimator>()
     private val slotCol = LinearLayout(act)
     private val rows = LinearLayout(act)
     private var btArmed = 0L
@@ -247,10 +250,6 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
 
     /** Перестраивает плитки по списку из настроек. */
     // ---------- Настраиваемые кнопки: «+», удержание OK, перестановка ----------
-
-    private var movingId: String? = null
-    private var moveBackup: List<String> = emptyList()
-    private val wiggles = ArrayList<android.animation.ValueAnimator>()
 
     fun rebuildTiles(focusId: String? = null) {
         wiggles.forEach { it.cancel() }; wiggles.clear()
