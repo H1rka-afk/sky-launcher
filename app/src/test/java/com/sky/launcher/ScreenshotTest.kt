@@ -153,7 +153,7 @@ class ScreenshotTest {
                     if (v is android.view.ViewGroup) for (k in 0 until v.childCount) walk(v.getChildAt(k))
                 }
                 walk(a.window.decorView)
-                cells.getOrNull(1)?.requestFocus(); idle(400)
+                cells.getOrNull(1)?.let { it.onFocusChangeListener?.onFocusChange(it, true) }; idle(400)
                 a.window.decorView.captureRoboImage("build/shots/s_wallpaper_focus.png")
             }
         }
