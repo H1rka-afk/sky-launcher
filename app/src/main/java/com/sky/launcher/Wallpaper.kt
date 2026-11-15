@@ -13,7 +13,14 @@ import android.view.View
 import kotlin.math.cos
 import kotlin.math.sin
 
-class Wallpaper(val name: String, val base: Int, val colors: IntArray, val photo: String? = null)
+/**
+ * group: "live" — живые (градиенты и анимированные сцены), "nature" — фото природы, "space" — космос.
+ * scene: 0 — переливающийся градиент, иначе анимированная сцена [LiveScenes].
+ */
+class Wallpaper(
+    val name: String, val base: Int, val colors: IntArray, val photo: String? = null,
+    val group: String = "live", val scene: Int = 0
+)
 
 /** Загрузка фото с уменьшением под нужную ширину + небольшой кэш. */
 object Photos {
@@ -62,20 +69,29 @@ object Wallpapers {
         w("Персик", 0xFF2A0D14, 0xFFFF9F0A, 0xFFFFD60A, 0xFFFF375F, 0xFFFF6482),
     )
 
-    var all: List<Wallpaper> = gradients
+    /** Анимированные сцены — в конце списка, чтобы номера уже выбранных обоев не сдвинулись. */
+    private val scenes = listOf(
+        Wallpaper("Космос", 0xFF02030A.toInt(), intArrayOf(0xFF5E2CA5.toInt(), 0xFF1E3A8A.toInt(), 0xFFB0307A.toInt()), scene = LiveScenes.SPACE),
+        Wallpaper("Полярное сияние", 0xFF020B12.toInt(), IntArray(0), scene = LiveScenes.AURORA),
+        Wallpaper("Светлячки", 0xFF03110E.toInt(), IntArray(0), scene = LiveScenes.FIREFLIES),
+        Wallpaper("Волны", 0xFF04122B.toInt(), IntArray(0), scene = LiveScenes.WAVES),
+    )
+
+    var all: List<Wallpaper> = gradients + scenes
         private set
 
     /** Подгружает фото природы из assets/wallpapers.json (кладутся при сборке). */
     fun load(ctx: Context) {
-        if (all.size > gradients.size) return
+        if (all.size > gradients.size + scenes.size) return
         val photos = try {
             val arr = org.json.JSONArray(ctx.assets.open("wallpapers.json").bufferedReader().readText())
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
-                Wallpaper(o.getString("name"), 0xFF000000.toInt(), IntArray(0), o.getString("file"))
+                Wallpaper(o.getString("name"), 0xFF000000.toInt(), IntArray(0), o.getString("file"), o.optString("group", "nature"))
             }
         } catch (e: Exception) { emptyList() }
-        all = gradients + photos
+        // порядок: старые градиенты, фото природы, сцены, космос — индексы прежних обоев сохраняются
+        all = gradients + photos.filter { it.group == "nature" } + scenes + photos.filter { it.group != "nature" }
     }
 
     fun get(i: Int) = all[i.coerceIn(0, all.size - 1)]
@@ -186,8 +202,16 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
         return true
     }
 
+    private var scene: LiveScenes? = null
+
     override fun onDraw(canvas: Canvas) {
-        if (!drawPhoto(canvas)) {
+        if (wallpaper.scene != 0) {
+            val t = if (live) (SystemClock.uptimeMillis() - t0) / 1000f + 20f else 20f
+            val sc = scene?.takeIf { it.kind == wallpaper.scene && it.w == width && it.h == height }
+                ?: LiveScenes(context, wallpaper.scene, width, height, wallpaper.colors).also { scene = it }
+            sc.draw(canvas, t)
+            if (live) postInvalidateDelayed(40L)
+        } else if (!drawPhoto(canvas)) {
             val t = if (live) (SystemClock.uptimeMillis() - t0) / 1000f + 20f else 20f
             render(t)
             canvas.drawBitmap(buf, null, dst, scale)

@@ -155,7 +155,7 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
     fun showWallpapers() {
         val b = box(28, 22)
         b.addView(Ui.text(act, 22f, Color.WHITE, Ui.medium, false).apply { text = "Обои" })
-        b.addView(Ui.text(act, 14f, 0x99FFFFFF.toInt(), Ui.regular, false).apply { text = "Живые обои плавно двигаются · фото природы: Unsplash" },
+        b.addView(Ui.text(act, 14f, 0x99FFFFFF.toInt(), Ui.regular, false).apply { text = "Живые обои двигаются · фото природы и космоса: Unsplash" },
             LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = act.dpi(4); bottomMargin = act.dpi(8) })
         val content = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false; setPadding(act.dpi(8), act.dpi(8), act.dpi(8), act.dpi(16)) }
         val cur = act.repo.wallpaper
@@ -169,7 +169,7 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
             list.forEachIndexed { n, (i, w) ->
                 if (n % cols == 0) {
                     row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-                    content.addView(row, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (n > 0) topMargin = act.dpi(12) })
+                    content.addView(row, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (n > 0) topMargin = act.dpi(6) })
                 }
                 val cell = LinearLayout(act).apply {
                     orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
@@ -177,10 +177,9 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
                 }
                 val frame = FrameLayout(act).apply {
                     outlineProvider = object : ViewOutlineProvider() {
-                        override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, act.dp(14f)) }
+                        override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, act.dp(12f)) }
                     }
                     clipToOutline = true
-                    elevation = act.dp(4f)
                 }
                 frame.addView(WallpaperView(act, animated = false).apply { wallpaper = w }, LayoutParams(MATCH, MATCH))
                 if (i == cur) {
@@ -190,21 +189,25 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
                         setPadding(act.dpi(4), act.dpi(4), act.dpi(4), act.dpi(4))
                     }, LayoutParams(act.dpi(26), act.dpi(26), Gravity.TOP or Gravity.END).apply { topMargin = act.dpi(7); marginEnd = act.dpi(7) })
                 }
-                cell.addView(frame, LinearLayout.LayoutParams(act.dpi(192), act.dpi(108)))
+                // рамка выбора — снаружи картинки с зазором, как в iOS, видна на любых обоях
+                val ring = FrameLayout(act).apply { setPadding(act.dpi(4), act.dpi(4), act.dpi(4), act.dpi(4)) }
+                ring.addView(frame, LayoutParams(act.dpi(192), act.dpi(108)))
+                cell.addView(ring, LinearLayout.LayoutParams(WRAP, WRAP))
                 val name = Ui.text(act, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false).apply { text = w.name }
-                cell.addView(name, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = act.dpi(7) })
-                Ui.zoomOnFocus(cell, 1.07f) { f ->
-                    frame.foreground = if (f) Ui.round(act, 14f, 0, Color.WHITE, 3f) else null
+                cell.addView(name, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = act.dpi(4) })
+                cell.setOnFocusChangeListener { _, f ->
+                    ring.background = if (f) Ui.round(act, 16f, 0, Color.WHITE, 3f) else null
                     name.setTextColor(if (f) Color.WHITE else 0xCCFFFFFF.toInt())
                 }
                 cell.setOnClickListener { act.setWallpaper(i); hide() }
-                row!!.addView(cell, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (n % cols > 0) marginStart = act.dpi(16) })
+                row!!.addView(cell, LinearLayout.LayoutParams(WRAP, WRAP).apply { if (n % cols > 0) marginStart = act.dpi(8) })
                 if (i == cur) focus = cell
             }
         }
         val indexed = Wallpapers.all.withIndex().map { it.index to it.value }
         section("Живые", indexed.filter { it.second.photo == null })
-        section("Природа", indexed.filter { it.second.photo != null })
+        section("Природа", indexed.filter { it.second.group == "nature" })
+        section("Космос", indexed.filter { it.second.group == "space" })
         val sv = ScrollView(act).apply { isVerticalScrollBarEnabled = false; clipChildren = false; clipToPadding = false }
         sv.addView(content)
         b.addView(sv, LinearLayout.LayoutParams(WRAP, act.dpi(400)))

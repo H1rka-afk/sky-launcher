@@ -29,10 +29,22 @@ object Prefs {
         get() = p.getInt("layout_version", 0)
         set(v) = p.edit().putInt("layout_version", v).apply()
 
-    val DEFAULT_TILES = listOf("wallpaper", "sky_settings", "input", "network", "timer", "tv_settings")
+    val DEFAULT_TILES = listOf("wallpaper", "sky_settings", "lock", "input", "network", "timer", "tv_settings")
 
     var ccTiles: List<String>
-        get() = p.getString("cc_tiles", null)?.split(",")?.filter { it.isNotBlank() } ?: DEFAULT_TILES
+        get() {
+            val saved = p.getString("cc_tiles", null)?.split(",")?.filter { it.isNotBlank() } ?: return DEFAULT_TILES
+            // один раз добавляем новую кнопку «Заблокировать экран» в уже настроенный пункт управления
+            if (!p.getBoolean("cc_lock_added", false)) {
+                p.edit().putBoolean("cc_lock_added", true).apply()
+                if ("lock" !in saved && saved.size < 9) {
+                    val v = saved.toMutableList().apply { add(minOf(2, size), "lock") }
+                    p.edit().putString("cc_tiles", v.joinToString(",")).apply()
+                    return v
+                }
+            }
+            return saved
+        }
         set(v) = p.edit().putString("cc_tiles", v.joinToString(",")).apply()
 
     // ---- Экран блокировки ----

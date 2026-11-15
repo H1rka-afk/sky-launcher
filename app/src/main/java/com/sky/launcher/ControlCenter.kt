@@ -403,6 +403,7 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
             "accessibility" -> act.safeStart(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             "widget" -> { hide(); act.widgetPicker() }
             "drop" -> { hide(); act.openSettings("drop") }
+            "lock" -> { hide(); android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ Lock.lockNow(act) }, 250) }
         }
     }
 
@@ -456,6 +457,7 @@ object CcTiles {
     val all = listOf(
         TileDef("wallpaper", "Обои", R.drawable.ic_image),
         TileDef("sky_settings", "Настройки Sky OS", R.drawable.ic_gear),
+        TileDef("lock", "Заблокировать экран", R.drawable.ic_lock),
         TileDef("tv_settings", "Настройки телевизора", R.drawable.ic_tune),
         TileDef("display", "Экран и изображение", R.drawable.ic_tv),
         TileDef("input", "Источник сигнала (HDMI)", R.drawable.ic_input),

@@ -103,35 +103,64 @@ open class LockActivity : Activity() {
         main.addView(hint, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(18); bottomMargin = dpi(30) })
         root.addView(main, FrameLayout.LayoutParams(M, M))
 
-        // --- Ввод код-пароля ---
-        pad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; visibility = View.GONE }
+        // --- Ввод код-пароля (как в iOS: стеклянные круглые кнопки с буквами) ---
+        pad = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; visibility = View.GONE
+            setBackgroundColor(0x8C000000.toInt())
+        }
         padTitle = Ui.text(this, 18f, Color.WHITE, Ui.medium)
         padTitle.gravity = Gravity.CENTER
         pad.addView(padTitle, LinearLayout.LayoutParams(W, W))
         dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        pad.addView(dots, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(16); bottomMargin = dpi(20) })
-        val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫")
+        pad.addView(dots, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(14); bottomMargin = dpi(22) })
+        val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "cancel", "0", "del")
+        val letters = mapOf("2" to "A B C", "3" to "D E F", "4" to "G H I", "5" to "J K L", "6" to "M N O",
+            "7" to "P Q R S", "8" to "T U V", "9" to "W X Y Z")
+        val key = dpi(60)
         var first: View? = null
         for (r in 0 until 4) {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             for (c in 0 until 3) {
                 val k = keys[r * 3 + c]
-                val b = Ui.text(this, if (k == "⌫") 20f else 24f, Color.WHITE, Ui.regular, false).apply {
-                    text = k; gravity = Gravity.CENTER
-                    background = if (k.isEmpty()) null else Ui.oval(this@LockActivity, 0x40FFFFFF)
-                    isFocusable = k.isNotEmpty(); isClickable = k.isNotEmpty()
+                val b: View
+                if (k == "cancel" || k == "del") {
+                    // текстовые кнопки снизу, как «Отмена»/«Удалить» в iOS
+                    val tv = Ui.text(this, 15f, Color.WHITE, Ui.regular, false).apply {
+                        text = if (k == "del") "Удалить" else "Отмена"; gravity = Gravity.CENTER
+                        isFocusable = true; isClickable = true
+                    }
+                    tv.setOnFocusChangeListener { _, f ->
+                        tv.background = if (f) Ui.round(this, 30f, 0x33FFFFFF, 0) else null
+                    }
+                    tv.setOnClickListener { if (k == "del") backspace() else cancelPad() }
+                    b = tv
+                } else {
+                    val box = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                        background = Ui.oval(this@LockActivity, 0x38FFFFFF)
+                        isFocusable = true; isClickable = true
+                    }
+                    val num = Ui.text(this, 28f, Color.WHITE, Ui.light, false).apply { text = k; gravity = Gravity.CENTER }
+                    box.addView(num, LinearLayout.LayoutParams(W, W))
+                    val sub = letters[k]?.let { l ->
+                        Ui.text(this, 8f, Color.WHITE, Ui.bold, false).apply { text = l; letterSpacing = 0.1f }
+                            .also { box.addView(it, LinearLayout.LayoutParams(W, W).apply { topMargin = -dpi(1) }) }
+                    }
+                    box.setOnFocusChangeListener { _, f ->
+                        box.background = Ui.oval(this, if (f) 0xF2FFFFFF.toInt() else 0x38FFFFFF)
+                        val col = if (f) Color.BLACK else Color.WHITE
+                        num.setTextColor(col); sub?.setTextColor(col)
+                    }
+                    box.setOnClickListener { digit(k) }
+                    if (k == "5") first = box
+                    b = box
                 }
-                if (k.isNotEmpty()) {
-                    Ui.zoomOnFocus(b, 1.1f) { f -> b.background = Ui.oval(this, if (f) 0xE6FFFFFF.toInt() else 0x40FFFFFF); b.setTextColor(if (f) Color.BLACK else Color.WHITE) }
-                    b.setOnClickListener { if (k == "⌫") backspace() else digit(k) }
-                    if (k == "5") first = b
-                }
-                row.addView(b, LinearLayout.LayoutParams(dpi(54), dpi(54)).apply { if (c > 0) marginStart = dpi(20) })
+                row.addView(b, LinearLayout.LayoutParams(key, key).apply { if (c > 0) marginStart = dpi(24) })
             }
-            pad.addView(row, LinearLayout.LayoutParams(W, W).apply { if (r > 0) topMargin = dpi(12) })
+            pad.addView(row, LinearLayout.LayoutParams(W, W).apply { if (r > 0) topMargin = dpi(14) })
         }
-        pad.addView(Ui.text(this, 12f, 0xB3FFFFFF.toInt(), Ui.regular).apply { text = "Можно вводить цифры кнопками пульта · Назад — отмена" },
-            LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(24) })
+        pad.addView(Ui.text(this, 12f, 0x99FFFFFF.toInt(), Ui.regular, false).apply { text = "Цифры можно вводить кнопками пульта" },
+            LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(22) })
         padFirst = first
         root.addView(pad, FrameLayout.LayoutParams(M, M))
         setContentView(root)
@@ -199,6 +228,12 @@ open class LockActivity : Activity() {
         padFirst?.requestFocus()
     }
 
+    private fun cancelPad() {
+        if (mode.isNotEmpty()) { setResult(RESULT_CANCELED); finish() }
+        else if (entered.isNotEmpty()) { entered.clear(); updateDots() }
+        else hidePad()
+    }
+
     private fun hidePad() {
         pad.animate().alpha(0f).setDuration(150).withEndAction { pad.visibility = View.GONE }.start()
         main.visibility = View.VISIBLE; main.animate().alpha(1f).setDuration(200).start()
@@ -208,7 +243,7 @@ open class LockActivity : Activity() {
         dots.removeAllViews()
         for (i in 0 until 4) dots.addView(View(this).apply {
             background = Ui.oval(this@LockActivity, if (i < entered.length) Color.WHITE else 0, Color.WHITE, 1.5f)
-        }, LinearLayout.LayoutParams(dpi(12), dpi(12)).apply { if (i > 0) marginStart = dpi(18) })
+        }, LinearLayout.LayoutParams(dpi(13), dpi(13)).apply { if (i > 0) marginStart = dpi(22) })
     }
 
     private fun digit(d: String) {

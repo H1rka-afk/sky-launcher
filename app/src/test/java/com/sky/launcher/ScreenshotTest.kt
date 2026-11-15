@@ -116,6 +116,25 @@ class ScreenshotTest {
         act.window.decorView.captureRoboImage("build/shots/07_home_photo.png")
         act.setWallpaper(12); idle(900)
         act.window.decorView.captureRoboImage("build/shots/08_home_photo2.png")
+
+        // Живые сцены и космос
+        for (name in listOf("Космос", "Полярное сияние", "Светлячки", "Волны")) {
+            val i = Wallpapers.all.indexOfFirst { it.name == name && it.scene != 0 }
+            act.setWallpaper(i); idle(900)
+            act.window.decorView.captureRoboImage("build/shots/w_live_$i.png")
+        }
+        // выбор обоев с рамкой на светлом фото и раздел «Космос»
+        act.setWallpaper(Wallpapers.all.indexOfFirst { it.name == "Туманный лес" }); idle(500)
+        act.sheet.showWallpapers(); idle(800)
+        act.window.decorView.captureRoboImage("build/shots/06b_wallpapers_focus.png")
+        act.sheet.hide(); idle(500)
+        val space = Wallpapers.all.withIndex().filter { it.value.group == "space" }
+        space.forEach { (i, _) -> act.setWallpaper(i); idle(400); act.window.decorView.captureRoboImage("build/shots/w_space_$i.png") }
+        if (space.isNotEmpty()) {
+            act.sheet.showWallpapers(); idle(800)
+            act.window.decorView.captureRoboImage("build/shots/06c_wallpapers_space.png")
+            act.sheet.hide(); idle(500)
+        }
     }
 
     @Test

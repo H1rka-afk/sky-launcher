@@ -41,12 +41,61 @@ def size(path):
     out = subprocess.check_output(["identify", "-format", "%w %h", path + "[0]"]).decode().split()
     return int(out[0]), int(out[1])
 
+# Космос — добавляются в конец списка (номера уже выбранных обоев не сдвигаются)
+SPACE = [
+    ("photo-1462331940025-496dfbfc7564", "Туманность"),
+    ("photo-1446776811953-b23d57bd21aa", "Земля из космоса"),
+    ("photo-1419242902214-272b3f66ee7a", "Млечный Путь"),
+    ("photo-1444703686981-a3abbc4d4fe3", "Звёздное небо"),
+    ("photo-1502134249126-9f3755a50d78", "Галактика"),
+    ("photo-1451187580459-43490279c0fa", "Огни Земли"),
+    ("photo-1543722530-d2c3201371e7", "Космос"),
+    ("photo-1465101162946-4377e57745c3", "Ночное небо"),
+    ("photo-1454789548928-9efd52dc4031", "Орбита"),
+    ("photo-1506318137071-a8e063b4bec0", "Звёзды"),
+    ("photo-1534796636912-3b95b3ab5986", "Звёздная пыль"),
+    ("photo-1516339901601-2e1b62dc0c45", "Над облаками"),
+]
+SPACE_WANT = 8
+
+def add_space(meta):
+    if any(m.get("group") == "space" for m in meta):
+        return False
+    if subprocess.call("command -v convert >/dev/null", shell=True) != 0:
+        subprocess.check_call("sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick webp >/dev/null", shell=True)
+    added = 0
+    for pid, name in SPACE:
+        if added >= SPACE_WANT: break
+        raw = "/tmp/raw_space.jpg"
+        try:
+            fetch(f"https://images.unsplash.com/{pid}?w=2400&q=88&fm=jpg&fit=max", raw)
+            w, h = size(raw)
+        except Exception as e:
+            print("skip", pid, e); continue
+        if w < h * 1.2:
+            print("skip (not landscape)", pid, w, h); continue
+        n = len(meta) + 1
+        rel = f"wallpapers/wp_{n:02d}.webp"
+        dst = os.path.join("app/src/main/assets", rel)
+        subprocess.check_call(["convert", raw, "-auto-orient", "-resize", "1920x1080^", "-gravity", "center",
+                               "-extent", "1920x1080", "-strip", "-quality", "80", dst])
+        if not os.path.exists(dst) or os.path.getsize(dst) < 10000:
+            print("convert failed", pid); continue
+        meta.append({"file": rel, "name": name, "group": "space", "source": f"https://unsplash.com/photos/{pid}"})
+        added += 1
+        print("ok space", pid, name, w, h, os.path.getsize(dst))
+    return added > 0
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     if os.path.exists(META):
         meta = json.load(open(META))
         if len(meta) >= 8 and all(os.path.exists(os.path.join("app/src/main/assets", m["file"])) for m in meta):
-            print("Wallpapers already present:", len(meta)); return
+            print("Wallpapers already present:", len(meta))
+            if add_space(meta):
+                json.dump(meta, open(META, "w"), ensure_ascii=False, indent=1)
+                print("Saved with space:", len(meta))
+            return
     if subprocess.call("command -v convert >/dev/null", shell=True) != 0:
         subprocess.check_call("sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick >/dev/null", shell=True)
     meta = []

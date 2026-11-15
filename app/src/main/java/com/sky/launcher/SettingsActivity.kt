@@ -588,40 +588,57 @@ class SettingsActivity : Activity() {
     }
 
     private fun wallpaper() {
-        header("Обои", "Живые обои плавно двигаются. Фото природы — Unsplash.")
+        header("Обои", "Живые обои двигаются. Фото природы и космоса — Unsplash.")
         val g = group(content)
         toggle(g, "Движение обоев", { Prefs.motion }) { Prefs.motion = it }
         footer("Выключите, если телевизор работает медленно — обои станут неподвижными.")
         val cur = repo.wallpaper
-        var row: LinearLayout? = null
-        Wallpapers.all.forEachIndexed { i, w ->
-            if (i % 3 == 0) {
-                row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
-                content.addView(row, LinearLayout.LayoutParams(W, W).apply { bottomMargin = dpi(16) })
-            }
-            val cell = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-                isFocusable = true; isClickable = true; clipChildren = false
-            }
-            val frame = FrameLayout(this).apply {
-                outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, dp(12f)) }
+        val indexed = Wallpapers.all.withIndex().toList()
+        fun section(title: String, list: List<IndexedValue<Wallpaper>>) {
+            if (list.isEmpty()) return
+            content.addView(Ui.text(this, 15f, 0x99FFFFFF.toInt(), Ui.medium, false).apply { text = title.uppercase() },
+                LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(14); bottomMargin = dpi(6); marginStart = dpi(6) })
+            var row: LinearLayout? = null
+            list.forEachIndexed { n, (i, w) ->
+                if (n % 3 == 0) {
+                    row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
+                    content.addView(row, LinearLayout.LayoutParams(W, W).apply { bottomMargin = dpi(8) })
                 }
-                clipToOutline = true
+                val cell = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+                    isFocusable = true; isClickable = true
+                }
+                val frame = FrameLayout(this).apply {
+                    outlineProvider = object : ViewOutlineProvider() {
+                        override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, dp(11f)) }
+                    }
+                    clipToOutline = true
+                }
+                frame.addView(WallpaperView(this, animated = false).apply { wallpaper = w }, FrameLayout.LayoutParams(M, M))
+                if (i == cur) frame.addView(ImageView(this).apply {
+                    setImageResource(R.drawable.ic_check); setColorFilter(Color.WHITE)
+                    background = Ui.oval(this@SettingsActivity, Ui.BLUE, Color.WHITE, 2f)
+                    setPadding(dpi(4), dpi(4), dpi(4), dpi(4))
+                }, FrameLayout.LayoutParams(dpi(24), dpi(24), Gravity.TOP or Gravity.END).apply { topMargin = dpi(6); marginEnd = dpi(6) })
+                // рамка выбора снаружи картинки с зазором — видна даже на светлых обоях
+                val ring = FrameLayout(this).apply { setPadding(dpi(4), dpi(4), dpi(4), dpi(4)) }
+                ring.addView(frame, FrameLayout.LayoutParams(dpi(146), dpi(82)))
+                cell.addView(ring, LinearLayout.LayoutParams(W, W))
+                val name = Ui.text(this, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false).apply {
+                    text = w.name; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER
+                }
+                cell.addView(name, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(2) })
+                cell.setOnFocusChangeListener { _, f ->
+                    ring.background = if (f) Ui.round(this, 15f, 0, Color.WHITE, 3f) else null
+                    name.setTextColor(if (f) Color.WHITE else 0xCCFFFFFF.toInt())
+                }
+                cell.setOnClickListener { repo.wallpaper = i; changed = true; rebuild() }
+                row!!.addView(cell, LinearLayout.LayoutParams(dpi(154), W).apply { if (n % 3 > 0) marginStart = dpi(6) })
             }
-            frame.addView(WallpaperView(this, animated = false).apply { wallpaper = w }, FrameLayout.LayoutParams(M, M))
-            if (i == cur) frame.addView(ImageView(this).apply {
-                setImageResource(R.drawable.ic_check); setColorFilter(Color.WHITE)
-                background = Ui.oval(this@SettingsActivity, Ui.BLUE, Color.WHITE, 2f)
-                setPadding(dpi(4), dpi(4), dpi(4), dpi(4))
-            }, FrameLayout.LayoutParams(dpi(24), dpi(24), Gravity.TOP or Gravity.END).apply { topMargin = dpi(6); marginEnd = dpi(6) })
-            cell.addView(frame, LinearLayout.LayoutParams(dpi(146), dpi(82)))
-            cell.addView(Ui.text(this, 13f, 0xCCFFFFFF.toInt(), Ui.regular, false).apply { text = w.name; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER },
-                LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(6) })
-            Ui.zoomOnFocus(cell, 1.06f) { f -> frame.foreground = if (f) Ui.round(this, 12f, 0, Color.WHITE, 3f) else null }
-            cell.setOnClickListener { repo.wallpaper = i; changed = true; rebuild() }
-            row!!.addView(cell, LinearLayout.LayoutParams(dpi(146), W).apply { if (i % 3 > 0) marginStart = dpi(14) })
         }
+        section("Живые", indexed.filter { it.value.group == "live" })
+        section("Природа", indexed.filter { it.value.group == "nature" })
+        section("Космос", indexed.filter { it.value.group == "space" })
     }
 
     private fun home() {
