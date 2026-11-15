@@ -183,9 +183,8 @@ class MainActivity : Activity() {
     override fun onRestart() {
         super.onRestart()
         if (cc.open || sheet.open) return
-        home.alpha = 0f; home.scaleX = 1.06f; home.scaleY = 1.06f
-        home.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(340)
-            .setInterpolator(DecelerateInterpolator(1.8f)).start()
+        home.alpha = 0f
+        home.animate().alpha(1f).setDuration(200).withLayer().start()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -699,13 +698,14 @@ class MainActivity : Activity() {
         dimHome(true)
     }
 
-    /** Затемнение главного экрана: через аппаратный слой — плавно даже на слабом ТВ. */
+    /**
+     * Главный экран за папкой / Пунктом управления: прячется и появляется мгновенно.
+     * Плавное затемнение всего экрана слишком тяжело для процессора телевизора.
+     */
     private fun dimHome(dim: Boolean) {
-        val a = if (dim) 0.07f else 1f
-        if (home.alpha == a && home.animation == null) return
         home.animate().cancel()
-        home.animate().alpha(a).scaleX(if (dim) 0.95f else 1f).scaleY(if (dim) 0.95f else 1f)
-            .setDuration(170).withLayer().start()
+        home.alpha = 1f; home.scaleX = 1f; home.scaleY = 1f
+        home.visibility = if (dim) View.INVISIBLE else View.VISIBLE
     }
 
     /** Вызывается в начале закрытия: главный экран возвращается сразу, параллельно с анимацией. */
@@ -719,7 +719,7 @@ class MainActivity : Activity() {
             cc.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
         } else if (cc.visibility != View.VISIBLE && sheet.visibility != View.VISIBLE) {
             home.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-            handler.post { if (cc.visibility != View.VISIBLE && sheet.visibility != View.VISIBLE) dimHome(false) }
+            dimHome(false)   // в том же кадре: если следом откроется другое меню, мигания не будет
         }
         val f = if (focusStack.isEmpty()) null else focusStack.removeAt(focusStack.size - 1)
         (f?.takeIf { it.isAttachedToWindow && it.isShown } ?: firstFocus())?.requestFocus()
