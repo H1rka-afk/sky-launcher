@@ -142,16 +142,16 @@ object Island {
      * с анимированными шириной и высотой — так она плавно «перетекает» между состояниями.
      */
     private class Pill(ctx: Context) : FrameLayout(ctx) {
-        val boxW = ctx.dpi(440)
-        val boxH = ctx.dpi(84)
+        val boxW = ctx.dpi(380)
+        val boxH = ctx.dpi(72)
         private val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         private val icon = ImageView(ctx)
         private val texts = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        private val title = Ui.text(ctx, 12f, Color.WHITE, Ui.medium, false).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
-        private val sub = Ui.text(ctx, 11f, 0xB3FFFFFF.toInt(), Ui.regular, false).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        private val title = Ui.text(ctx, 11f, Color.WHITE, Ui.medium, false).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+        private val sub = Ui.text(ctx, 10f, 0xB3FFFFFF.toInt(), Ui.regular, false).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
         private val bar = Bar(ctx)
         private val ring = Ring(ctx)
-        private val right = Ui.text(ctx, 12f, Color.WHITE, Ui.medium, false).apply { maxLines = 1 }
+        private val right = Ui.text(ctx, 11f, Color.WHITE, Ui.medium, false).apply { maxLines = 1 }
         private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
         private val rect = RectF()
         private var bgW = ctx.dp(50f)
@@ -163,11 +163,11 @@ object Island {
         init {
             setWillNotDraw(false)
             clipChildren = false
-            row.addView(icon, LinearLayout.LayoutParams(ctx.dpi(16), ctx.dpi(16)))
+            row.addView(icon, LinearLayout.LayoutParams(ctx.dpi(14), ctx.dpi(14)))
             texts.addView(title); texts.addView(sub)
             row.addView(texts, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(8) })
-            row.addView(bar, LinearLayout.LayoutParams(ctx.dpi(104), ctx.dpi(5)).apply { marginStart = ctx.dpi(10) })
-            row.addView(ring, LinearLayout.LayoutParams(ctx.dpi(16), ctx.dpi(16)).apply { marginStart = ctx.dpi(10) })
+            row.addView(bar, LinearLayout.LayoutParams(ctx.dpi(90), ctx.dpi(4)).apply { marginStart = ctx.dpi(10) })
+            row.addView(ring, LinearLayout.LayoutParams(ctx.dpi(14), ctx.dpi(14)).apply { marginStart = ctx.dpi(10) })
             row.addView(right, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = ctx.dpi(10) })
             addView(row, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
             row.alpha = 0f
@@ -176,7 +176,7 @@ object Island {
         override fun onDraw(c: Canvas) {
             val l = (width - bgW) / 2f
             rect.set(l, 0f, l + bgW, bgH)
-            val r = minOf(bgH / 2f, context.dp(22f))
+            val r = minOf(bgH / 2f, context.dp(18f))
             c.drawRoundRect(rect, r, r, paint)
         }
 
@@ -198,8 +198,8 @@ object Island {
         private fun apply(c: Content) {
             val big = c.expanded
             val ctx = context
-            row.setPadding(ctx.dpi(if (big) 12 else 10), ctx.dpi(if (big) 9 else 5), ctx.dpi(if (big) 16 else 12), ctx.dpi(if (big) 9 else 5))
-            val iconSize = ctx.dpi(if (big) 28 else 16)
+            row.setPadding(ctx.dpi(if (big) 10 else 9), ctx.dpi(if (big) 7 else 4), ctx.dpi(if (big) 14 else 11), ctx.dpi(if (big) 7 else 4))
+            val iconSize = ctx.dpi(if (big) 24 else 14)
             (icon.layoutParams as LinearLayout.LayoutParams).apply { width = iconSize; height = iconSize }
             when {
                 c.bmp != null -> { icon.setImageBitmap(c.bmp); icon.clearColorFilter(); icon.visibility = VISIBLE }
@@ -207,16 +207,16 @@ object Island {
                 else -> icon.visibility = GONE
             }
             title.text = c.title
-            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (big) 13f else 12f)
+            title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (big) 12f else 11f)
             title.typeface = if (big) Ui.bold else Ui.medium
             texts.visibility = if (c.title.isEmpty() && c.sub.isNullOrEmpty()) GONE else VISIBLE
             title.visibility = if (c.title.isEmpty()) GONE else VISIBLE
             sub.text = c.sub ?: ""
             sub.visibility = if (c.sub.isNullOrEmpty()) GONE else VISIBLE
             texts.layoutParams = (texts.layoutParams as LinearLayout.LayoutParams).apply {
-                width = if (big) ctx.dpi(270) else ViewGroup.LayoutParams.WRAP_CONTENT
+                width = if (big) ctx.dpi(230) else ViewGroup.LayoutParams.WRAP_CONTENT
             }
-            title.maxWidth = ctx.dpi(270)
+            title.maxWidth = ctx.dpi(230)
             bar.visibility = if (c.bar != null) VISIBLE else GONE
             c.bar?.let { bar.set(it) }
             ring.visibility = if (c.ring != null) VISIBLE else GONE
@@ -268,7 +268,7 @@ object Island {
         }
 
         fun appear() {
-            bgW = context.dp(50f); bgH = context.dp(20f)
+            bgW = context.dp(40f); bgH = context.dp(16f)
             alpha = 0f
             animate().alpha(1f).setDuration(120).start()
         }
@@ -276,7 +276,7 @@ object Island {
         fun disappear(done: () -> Unit) {
             row.animate().cancel()
             row.animate().alpha(0f).scaleX(0.85f).scaleY(0.85f).setStartDelay(0).setDuration(110).start()
-            morphTo(context.dp(50f), context.dp(20f), 300, android.view.animation.AccelerateDecelerateInterpolator()) {
+            morphTo(context.dp(40f), context.dp(16f), 300, android.view.animation.AccelerateDecelerateInterpolator()) {
                 animate().alpha(0f).setDuration(140).withEndAction(done).start()
             }
         }

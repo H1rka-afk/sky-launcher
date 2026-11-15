@@ -21,15 +21,15 @@ class LockIsland(ctx: Context) : View(ctx) {
     private val capsule = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
     private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE8E8ED.toInt() }
     private val shackle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFE8E8ED.toInt(); style = Paint.Style.STROKE; strokeWidth = 2.3f * d; strokeCap = Paint.Cap.BUTT
+        color = 0xFFE8E8ED.toInt(); style = Paint.Style.STROKE; strokeWidth = 1.9f * d; strokeCap = Paint.Cap.BUTT
     }
     private val rect = RectF()
     private val arc = RectF()
     private val path = Path()
 
     /** Полный размер капсулы. */
-    private val fullW = 118f * d
-    private val fullH = 30f * d
+    private val fullW = 92f * d
+    private val fullH = 24f * d
     private var capW = fullW
     private var capH = fullH
     private var open = 0f          // 0 — закрыт, 1 — открыт
@@ -43,29 +43,29 @@ class LockIsland(ctx: Context) : View(ctx) {
         val top = 0f
         rect.set(cx - capW / 2, top, cx + capW / 2, top + capH)
         c.drawRoundRect(rect, capH / 2, capH / 2, capsule)
-        if (lockAlpha <= 0f || capW < 44 * d) return
+        if (lockAlpha <= 0f || capW < 36 * d) return
         // замок как в iOS: широкий скруглённый корпус и толстая дужка
         val a = (255 * lockAlpha).toInt()
         body.alpha = a; shackle.alpha = a
-        val lx = cx - capW / 2 + 19f * d
+        val lx = cx - capW / 2 + 15f * d
         val midY = top + capH / 2
-        val bw = 13f * d; val bh = 10.5f * d
-        val bTop = midY - bh / 2 + 3f * d
+        val bw = 10.4f * d; val bh = 8.4f * d
+        val bTop = midY - bh / 2 + 2.4f * d
         rect.set(lx - bw / 2, bTop, lx + bw / 2, bTop + bh)
-        c.drawRoundRect(rect, 2.6f * d, 2.6f * d, body)
+        c.drawRoundRect(rect, 2.1f * d, 2.1f * d, body)
         // дужка: сначала приподнимается, потом поворачивается вокруг правой ножки —
         // левая часть уходит вправо (как поворот в 3D)
-        val sw = 8.4f * d
+        val sw = 6.7f * d
         val rightX = lx + sw / 2
-        val lift = 2.6f * d * minOf(1f, open / 0.35f)
+        val lift = 2.1f * d * minOf(1f, open / 0.35f)
         val t = ((open - 0.15f) / 0.85f).coerceIn(0f, 1.15f)
         val turn = kotlin.math.cos(Math.PI * t).toFloat()
         c.save()
         c.translate(0f, -lift)
         c.scale(turn, 1f, rightX, 0f)
         path.reset()
-        val legBottom = bTop + 0.8f * d
-        val arcTop = bTop - 8.2f * d
+        val legBottom = bTop + 0.6f * d
+        val arcTop = bTop - 6.6f * d
         path.moveTo(lx - sw / 2, legBottom)
         path.lineTo(lx - sw / 2, arcTop + sw / 2)
         arc.set(lx - sw / 2, arcTop, lx + sw / 2, arcTop + sw)
@@ -77,7 +77,7 @@ class LockIsland(ctx: Context) : View(ctx) {
 
     /** Появление: капсула вырастает из маленькой. */
     fun appear() {
-        animateTo(220) { f -> capW = 44 * d + (fullW - 44 * d) * f; capH = 18 * d + (fullH - 18 * d) * f; lockAlpha = f }
+        animateTo(220) { f -> capW = 36 * d + (fullW - 36 * d) * f; capH = 14 * d + (fullH - 14 * d) * f; lockAlpha = f }
     }
 
     /** Неверный код — островок качает головой, как iPhone. */
@@ -100,7 +100,7 @@ class LockIsland(ctx: Context) : View(ctx) {
                     postDelayed({
                         val w0 = capW; val h0 = capH
                         animateTo(300) { f ->
-                            capW = w0 + (36 * d - w0) * f; capH = h0 + (14 * d - h0) * f
+                            capW = w0 + (30 * d - w0) * f; capH = h0 + (12 * d - h0) * f
                             lockAlpha = 1f - minOf(1f, f * 2.2f)
                             alpha = if (f > 0.6f) 1f - (f - 0.6f) / 0.4f else 1f
                         }
