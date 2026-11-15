@@ -124,14 +124,7 @@ class SettingsActivity : Activity() {
         val start = intent.getStringExtra(EXTRA_SECTION) ?: "about"
         show(start)
         sideRows[start]?.requestFocus()
-        Updater.onChange = {
-            updateSideBadge()
-            val st = updState()
-            if (st != lastUpdState) {          // перестраиваем только при смене состояния
-                lastUpdState = st
-                if (current == "update") rebuild()
-            } else progressLabel?.text = progressText()   // проценты — только текст кнопки
-        }
+        Updater.onChange = { updateSideBadge(); if (current == "update") refreshUpdate() }
         WeatherData.onUpdate = { if (current == "weather") rebuild() }
     }
 
@@ -314,15 +307,12 @@ class SettingsActivity : Activity() {
         val focusIdx = if (inContent) focusIndex(f!!) else -1
         val scroll = contentScroll.scrollY
         rebuilding = true
-        // держим фокус на области содержимого, пока она перестраивается — иначе он улетит в меню
-        if (inContent) { contentScroll.isFocusable = true; contentScroll.requestFocus() }
         show(current, force = true)
         contentScroll.scrollTo(0, scroll)
         if (inContent) {
             val list = focusables(content)
             (list.getOrNull(focusIdx) ?: list.lastOrNull())?.requestFocus()
         }
-        contentScroll.isFocusable = false
         rebuilding = false
     }
 
@@ -388,47 +378,69 @@ class SettingsActivity : Activity() {
             .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
     } catch (e: Exception) { null }
 
+    // Экран обновления строится один раз; дальше меняются только надписи — фокус никуда не прыгает.
+    private var updTitle: TextView? = null
+    private var updSub: TextView? = null
+    private var updNotes: TextView? = null
+    private var updAction: TextView? = null
+    private var updFooter: TextView? = null
+
     private fun update() {
         header("Обновление ПО")
-        val a = Updater.available
         val g = group(content)
-        val card = row(g, false).apply { setPadding(dpi(16), dpi(16), dpi(16), dpi(16)) }
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpi(16), dpi(16), dpi(16), dpi(16))
+        }
+        g.addView(card, LinearLayout.LayoutParams(M, W))
         card.addView(ImageView(this).apply { setImageBitmap(IconFactory.logo(dpi(60))) }, LinearLayout.LayoutParams(dpi(60), dpi(60)))
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        when {
-            a != null -> {
-                col.addView(Ui.text(this, 19f, Color.WHITE, Ui.medium, false).apply { text = "Sky OS ${a.name}" })
-                col.addView(Ui.text(this, 14f, 0xFF8E8E93.toInt(), Ui.regular, false).apply { text = "Доступно обновление" })
-                if (a.notes.isNotBlank()) col.addView(Ui.text(this, 15f, Color.WHITE, Ui.regular, false).apply { text = a.notes },
-                    LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(8) })
-            }
-            Updater.checking -> col.addView(Ui.text(this, 17f, Color.WHITE, Ui.regular, false).apply { text = "Проверка обновлений…" })
-            else -> {
-                col.addView(Ui.text(this, 19f, Color.WHITE, Ui.medium, false).apply { text = "Sky OS ${Updater.currentName(this@SettingsActivity)}" })
-                col.addView(Ui.text(this, 14f, 0xFF8E8E93.toInt(), Ui.regular, false).apply {
-                    text = if (Updater.lastError != null) "Не удалось проверить: ${Updater.lastError}" else "Установлена последняя версия"
-                })
-            }
-        }
+        updTitle = Ui.text(this, 19f, Color.WHITE, Ui.medium, false)
+        updSub = Ui.text(this, 14f, 0xFF8E8E93.toInt(), Ui.regular, false)
+        updNotes = Ui.text(this, 15f, Color.WHITE, Ui.regular, false)
+        col.addView(updTitle); col.addView(updSub)
+        col.addView(updNotes, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(8) })
         card.addView(col, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(16) })
-        progressLabel = null
-        lastUpdState = updState()
-        if (a != null) {
-            val r = item(g, progressText(), color = Ui.BLUE, last = true) {
-                if (Updater.progress < 0) {
-                    Updater.downloadAndInstall(this)
-                    Toast.makeText(this, "Загружаю обновление…", Toast.LENGTH_SHORT).show()
-                }
+        val r = item(g, "", color = Ui.BLUE, last = true) {
+            when {
+                Updater.progress >= 0 || Updater.checking -> {}
+                Updater.available != null -> Updater.downloadAndInstall(this)
+                else -> Updater.check(this, manual = true)
             }
-            progressLabel = r.getChildAt(0) as? TextView
-        } else item(g, "Проверить обновления", color = Ui.BLUE, last = true) { Updater.check(this, manual = true) }
-        if (a != null) footer("После загрузки откроется окно установки Android — нажмите «Установить». " +
-            "Если появится запрос, разрешите Sky OS устанавливать приложения.")
+            refreshUpdate()
+        }
+        updAction = r.getChildAt(0) as? TextView
+        updFooter = Ui.text(this, 13f, 0xFF8E8E93.toInt(), Ui.regular, false).apply { setLineSpacing(0f, 1.2f) }
+        content.addView(updFooter, LinearLayout.LayoutParams(M, W).apply { topMargin = -dpi(14); bottomMargin = dpi(22); marginStart = dpi(16); marginEnd = dpi(16) })
         val g2 = group(content)
         toggle(g2, "Автоматически проверять обновления", { Prefs.autoUpdate }) { Prefs.autoUpdate = it }
         val last = Prefs.lastUpdateCheck
         footer("Проверка выполняется при включении и раз в 6 часов. Последняя проверка: " +
             (if (last == 0L) "ещё не было" else SimpleDateFormat("d MMMM, H:mm", RU).format(Date(last))))
+        refreshUpdate()
+    }
+
+    private fun refreshUpdate() {
+        val a = Updater.available
+        val p = Updater.progress
+        updTitle?.text = if (a != null) "Sky OS ${a.name}" else "Sky OS ${Updater.currentName(this)}"
+        updSub?.text = when {
+            Updater.checking -> "Проверка обновлений…"
+            a != null -> "Доступно обновление"
+            Updater.lastError != null -> "Не удалось проверить: ${Updater.lastError}"
+            else -> "Установлена последняя версия"
+        }
+        updNotes?.text = a?.notes ?: ""
+        updNotes?.visibility = if (a?.notes.isNullOrBlank()) View.GONE else View.VISIBLE
+        updAction?.text = when {
+            p >= 0 -> "Загрузка… $p%"
+            Updater.checking -> "Проверка…"
+            a != null -> "Загрузить и установить"
+            else -> "Проверить обновления"
+        }
+        updFooter?.text = if (a != null) "После загрузки откроется окно установки Android — нажмите «Установить». " +
+            "Если появится запрос, разрешите Sky OS устанавливать приложения." else ""
+        updFooter?.visibility = if (a != null) View.VISIBLE else View.GONE
     }
 
     private fun wallpaper() {

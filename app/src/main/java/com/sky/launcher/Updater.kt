@@ -113,7 +113,7 @@ object Updater {
                             val n = inp.read(buf); if (n < 0) break
                             out.write(buf, 0, n); done += n
                             val pct = if (total > 0) (done * 100 / total).toInt() else 50
-                            if (pct != last) { last = pct; main.post { progress = pct; onChange?.invoke() } }
+                            if (pct >= last + 5 || pct == 100) { last = pct; main.post { progress = pct; onChange?.invoke() } }
                         }
                     }
                 }

@@ -129,6 +129,26 @@ class ScreenshotTest {
         }
     }
 
+    /** Обновления статуса не должны сдвигать фокус. */
+    @Test
+    fun updateFocusStable() {
+        val i = Intent(org.robolectric.RuntimeEnvironment.getApplication(), SettingsActivity::class.java)
+            .putExtra(SettingsActivity.EXTRA_SECTION, "update")
+        val a = Robolectric.buildActivity(SettingsActivity::class.java, i).setup().get()
+        idle(500)
+        a.window.decorView.isFocusableInTouchMode
+        val target = generateSequence(listOf<android.view.View>(a.window.decorView)) { l ->
+            l.flatMap { v -> if (v is android.view.ViewGroup) (0 until v.childCount).map { v.getChildAt(it) } else emptyList() }.ifEmpty { null }
+        }.flatten().first { it is android.widget.TextView && it.text.toString() == "Проверить обновления" }.parent as android.view.View
+        target.isFocusableInTouchMode = true
+        target.requestFocus()
+        val before = a.currentFocus
+        repeat(30) { Updater.onChange?.invoke(); idle(20) }
+        val after = a.currentFocus
+        println("FOCUS STABLE: " + (before === after && before === target))
+        org.junit.Assert.assertSame(before, after)
+    }
+
     /** Реальный запрос погоды — проверяем, что сервер отвечает и данные разбираются. */
     @Test
     fun weatherNetwork() {
