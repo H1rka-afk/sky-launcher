@@ -508,10 +508,11 @@ class SettingsActivity : Activity() {
     private fun island() {
         header("Dynamic Island", "Чёрная «пилюля» сверху экрана, как на iPhone.")
         val g = group(content)
-        toggle(g, "Dynamic Island", { Prefs.island }) { Prefs.island = it; rebuild() }
+        toggle(g, "Dynamic Island", { Prefs.island }) { Prefs.island = it; Island.hostChanged(); rebuild() }
         footer("В островке показываются уведомления, таймер сна, Sky Drop, загрузка обновления, подключение Wi‑Fi и Bluetooth, " +
             "заряд пульта и снимки экрана, а на экране блокировки — замок, который открывается при разблокировке. " +
-            "Поверх других приложений — когда включена служба Sky OS.")
+            "Поверх других приложений — когда включена служба Sky OS. " +
+            "Если выключить — уведомления снова будут баннерами, а на экране блокировки будет простой замок.")
         if (Prefs.island) {
             val g3 = group(content)
             item(g3, "Показать уведомление", color = Ui.BLUE, last = true) {

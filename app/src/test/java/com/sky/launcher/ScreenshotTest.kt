@@ -216,6 +216,11 @@ class ScreenshotTest {
         idle(500)
         lock.window.decorView.captureRoboImage("build/shots/14b_unlock_open.png")
         idle(1200)
+        Prefs.island = false
+        val lockPlain = Robolectric.buildActivity(LockActivity::class.java).setup().get()
+        idle(600)
+        lockPlain.window.decorView.captureRoboImage("build/shots/14c_lock_no_island.png")
+        Prefs.island = true
         Lock.setPin("1234")
         val lock2 = Robolectric.buildActivity(LockActivity::class.java).setup().get()
         idle(300)

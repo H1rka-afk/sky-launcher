@@ -88,8 +88,10 @@ open class LockActivity : Activity() {
 
         // --- Основной вид ---
         main = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-        // место под островок с замком
-        main.addView(View(this), LinearLayout.LayoutParams(1, dpi(40)))
+        val withIsland = Prefs.island && (intent.getStringExtra(EXTRA_MODE) ?: "").isEmpty()
+        if (withIsland) main.addView(View(this), LinearLayout.LayoutParams(1, dpi(40)))   // место под островок с замком
+        else main.addView(ImageView(this).apply { setImageResource(R.drawable.ic_lock); alpha = 0.9f },   // простой замок
+            LinearLayout.LayoutParams(dpi(20), dpi(20)).apply { topMargin = dpi(28) })
         date = Ui.text(this, 17f, Color.WHITE, Ui.medium)
         main.addView(date, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(14) })
         time = Ui.text(this, 96f, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL)).apply { letterSpacing = -0.02f }
@@ -164,8 +166,10 @@ open class LockActivity : Activity() {
         padFirst = first
         root.addView(pad, FrameLayout.LayoutParams(M, M))
         // Dynamic Island с замком (только на экране блокировки)
-        island = LockIsland(this)
-        root.addView(island, FrameLayout.LayoutParams(W, W, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dpi(10) })
+        if (withIsland) {
+            island = LockIsland(this)
+            root.addView(island, FrameLayout.LayoutParams(W, W, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dpi(10) })
+        }
         setContentView(root)
         root.isFocusable = true
 
