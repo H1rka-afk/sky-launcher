@@ -310,7 +310,7 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
     private fun tileName(id: String) =
         if (id.startsWith("app:")) act.model.label(id.removePrefix("app:")) else CcTiles.get(id)?.name ?: id
 
-    private fun moveHint() = "◀ ▶  переставить     OK — готово     Назад — отмена"
+    private fun moveHint() = "◀ ▶ переставить · OK готово · Назад отмена"
 
     private fun tileMenu(id: String) {
         val items = arrayListOf(

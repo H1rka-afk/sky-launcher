@@ -99,7 +99,8 @@ class LockActivity : Activity() {
         // --- Ввод код-пароля ---
         pad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; visibility = View.GONE }
         padTitle = Ui.text(this, 22f, Color.WHITE, Ui.medium)
-        pad.addView(padTitle)
+        padTitle.gravity = Gravity.CENTER
+        pad.addView(padTitle, LinearLayout.LayoutParams(W, W))
         dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         pad.addView(dots, LinearLayout.LayoutParams(W, W).apply { topMargin = dpi(20); bottomMargin = dpi(26) })
         val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫")
