@@ -145,6 +145,17 @@ class ScreenshotTest {
             val a = Robolectric.buildActivity(SettingsActivity::class.java, i).setup().get()
             idle(500)
             a.window.decorView.captureRoboImage("build/shots/s_$sec.png")
+            if (sec == "wallpaper") {
+                // рамка выбора на светлых обоях
+                val cells = ArrayList<android.view.View>()
+                fun walk(v: android.view.View) {
+                    if (v is android.widget.LinearLayout && v.isFocusable && v.childCount == 2 && v.getChildAt(0) is android.widget.FrameLayout) cells += v
+                    if (v is android.view.ViewGroup) for (k in 0 until v.childCount) walk(v.getChildAt(k))
+                }
+                walk(a.window.decorView)
+                cells.getOrNull(1)?.requestFocus(); idle(400)
+                a.window.decorView.captureRoboImage("build/shots/s_wallpaper_focus.png")
+            }
         }
     }
 

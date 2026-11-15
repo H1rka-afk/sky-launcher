@@ -137,7 +137,7 @@ class LiveScenes(ctx: Context, val kind: Int, val w: Int, val h: Int, private va
             val cx = 160 * (0.5f + 0.38f * sin(t * 0.02f * (1 + i * 0.4f) + ph))
             val cy = 90 * (0.5f + 0.3f * cos(t * 0.017f * (1 + i * 0.3f) + ph))
             val r = 160 * (0.42f + 0.06f * sin(t * 0.05f + i))
-            p.shader = RadialGradient(cx, cy, r, intArrayOf(col and 0x88FFFFFF.toInt(), col and 0x33FFFFFF, col and 0x00FFFFFF),
+            p.shader = RadialGradient(cx, cy, r, intArrayOf(col and 0xAAFFFFFF.toInt(), col and 0x44FFFFFF, col and 0x00FFFFFF),
                 floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
             nc.drawCircle(cx, cy, r, p)
         }
@@ -192,11 +192,11 @@ class LiveScenes(ctx: Context, val kind: Int, val w: Int, val h: Int, private va
                 path.lineTo(x, y)
             }
             path.close()
-            val pulse = 0.65f + 0.35f * sin(t * 0.4f + k * 2.2f)
-            val a = (0x90 * pulse).toInt()
+            val pulse = 0.75f + 0.25f * sin(t * 0.4f + k * 2.2f)
+            val a = (0xE0 * pulse).toInt()
             p.shader = LinearGradient(0f, baseY - height, 0f, baseY + amp * 1.4f,
-                intArrayOf(col and 0x00FFFFFF, (a / 3 shl 24) or (col and 0xFFFFFF), (a shl 24) or (col and 0xFFFFFF), col and 0x00FFFFFF),
-                floatArrayOf(0f, 0.55f, 0.85f, 1f), Shader.TileMode.CLAMP)
+                intArrayOf(col and 0x00FFFFFF, (a / 2 shl 24) or (col and 0xFFFFFF), (a shl 24) or (col and 0xFFFFFF), col and 0x00FFFFFF),
+                floatArrayOf(0f, 0.45f, 0.82f, 1f), Shader.TileMode.CLAMP)
             c.drawPath(path, p)
         }
         p.shader = null
@@ -213,12 +213,13 @@ class LiveScenes(ctx: Context, val kind: Int, val w: Int, val h: Int, private va
         c.drawRect(0f, 0f, fw, fh, bg)
         stars(c, t, 0.0005f)
         // луна
-        p.shader = RadialGradient(fw * 0.8f, fh * 0.2f, fh * 0.16f, intArrayOf(0x55E8F4FF, 0x18E8F4FF, 0x00E8F4FF),
+        val mx = fw * 0.9f; val my = fh * 0.62f
+        p.shader = RadialGradient(mx, my, fh * 0.14f, intArrayOf(0x44E8F4FF, 0x14E8F4FF, 0x00E8F4FF),
             floatArrayOf(0f, 0.4f, 1f), Shader.TileMode.CLAMP)
-        c.drawCircle(fw * 0.8f, fh * 0.2f, fh * 0.16f, p)
+        c.drawCircle(mx, my, fh * 0.14f, p)
         p.shader = null
-        p.color = 0xFFEFF5FF.toInt()
-        c.drawCircle(fw * 0.8f, fh * 0.2f, fh * 0.035f, p)
+        p.color = 0xD9EFF5FF.toInt()
+        c.drawCircle(mx, my, fh * 0.026f, p)
         p.color = 0xFF020A08.toInt()
         c.drawPath(trees, p)
         val g = glow!!
