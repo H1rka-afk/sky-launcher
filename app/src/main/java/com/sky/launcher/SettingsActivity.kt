@@ -64,6 +64,8 @@ class SettingsActivity : Activity() {
     private val sections = listOf(
         Section("about", "Об этой системе", R.drawable.ic_info, Ui.BLUE),
         Section("update", "Обновление ПО", R.drawable.ic_refresh, 0xFF8E8E93.toInt()),
+        Section("passcode", "Код-пароль", R.drawable.ic_lock, Ui.RED),
+        Section("notify", "Уведомления", R.drawable.ic_info, 0xFFFF3B30.toInt()),
         Section("wallpaper", "Обои", R.drawable.ic_image, 0xFF32ADE6.toInt()),
         Section("home", "Главный экран", R.drawable.ic_apps, Ui.PURPLE),
         Section("cc", "Пункт управления", R.drawable.ic_tune, 0xFF8E8E93.toInt()),
@@ -181,7 +183,7 @@ class SettingsActivity : Activity() {
         card.addView(t, LinearLayout.LayoutParams(0, W, 1f).apply { marginStart = dpi(14) })
         sidebar.addView(card, LinearLayout.LayoutParams(M, W).apply { bottomMargin = dpi(18) })
 
-        val groups = listOf(listOf("about", "update"), listOf("wallpaper", "home", "cc", "weather"),
+        val groups = listOf(listOf("about", "update"), listOf("passcode", "notify"), listOf("wallpaper", "home", "cc", "weather"),
             listOf("wifi", "bluetooth", "display", "access"), listOf("tv"))
         for (g in groups) {
             val box = group(sidebar)
@@ -338,6 +340,8 @@ class SettingsActivity : Activity() {
         if (id in heavy) cache[id] = content
         when (id) {
             "about" -> about()
+            "passcode" -> passcode()
+            "notify" -> notifications()
             "update" -> update()
             "wallpaper" -> wallpaper()
             "home" -> home()
@@ -347,6 +351,69 @@ class SettingsActivity : Activity() {
             "bluetooth" -> bluetooth()
             "display" -> display()
             "access" -> access()
+        }
+    }
+
+    private fun passcode() {
+        header("Код-пароль", "Экран блокировки появляется при включении телевизора и после бездействия на главном экране.")
+        val g = group(content)
+        if (!Lock.hasPin()) {
+            item(g, "Включить код-пароль", color = Ui.BLUE, last = true) { askNewPin() }
+            footer("Пока код-пароль не задан, экран блокировки открывается кнопкой OK.")
+        } else {
+            item(g, "Сменить код-пароль", color = Ui.BLUE) { askPin("Введите текущий код-пароль") { askNewPin() } }
+            item(g, "Выключить код-пароль", color = Ui.RED, last = true) {
+                askPin("Введите текущий код-пароль") { Lock.setPin(null); toast("Код-пароль выключен"); rebuild() }
+            }
+            footer("Код вводится цифрами на пульте или кнопками на экране. После 5 ошибок — пауза 30 секунд.")
+        }
+        val g2 = group(content, "Экран блокировки")
+        toggle(g2, "Блокировать при включении ТВ", { Prefs.lockOnWake }) { Prefs.lockOnWake = it }
+        val opts = listOf(0, 5, 10, 15, 30, 60)
+        fun name(m: Int) = if (m == 0) "Никогда" else "Через $m мин"
+        item(g2, "Автоблокировка на главном экране", name(Prefs.lockIdleMin), arrow = true) {
+            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Автоблокировка")
+                .setItems(opts.map { name(it) }.toTypedArray()) { _, w -> Prefs.lockIdleMin = opts[w]; rebuild() }.show()
+        }
+        toggle(g2, "Напоминать о код-пароле", { Prefs.pinReminder }) { Prefs.pinReminder = it }
+        val g3 = group(content)
+        item(g3, "Заблокировать сейчас", color = Ui.BLUE, last = true) { Lock.lockNow(this) }
+        footer("Код-пароль защищает Sky OS. Системные настройки телевизора он не закрывает.")
+    }
+
+    private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
+
+    private fun askPin(title: String, ok: () -> Unit) {
+        input(title, "", password = true, digits = true) { pin ->
+            if (Lock.check(pin)) ok() else toast("Неверный код-пароль")
+        }
+    }
+
+    private fun askNewPin() {
+        input("Новый код-пароль (4 цифры)", "", password = true, digits = true) { a ->
+            if (a.length != 4 || a.any { !it.isDigit() }) { toast("Нужно ровно 4 цифры"); return@input }
+            input("Повторите код-пароль", "", password = true, digits = true) { b ->
+                if (a == b) { Lock.setPin(a); toast("Код-пароль установлен"); rebuild() } else toast("Коды не совпадают")
+            }
+        }
+    }
+
+    private fun notifications() {
+        header("Уведомления", "Баннеры в стиле iOS сверху экрана.")
+        val g = group(content)
+        toggle(g, "Уведомления приложений", { Prefs.appNotifications }) { Prefs.appNotifications = it }
+        footer("Уведомления других приложений показываются, когда включена служба Sky OS (Настройки → Автозапуск и сон).")
+        val g2 = group(content)
+        item(g2, "Показать пример", color = Ui.BLUE, last = true) {
+            Notify.post(this, "Привет от Sky OS", "Так выглядят уведомления — как на iPhone", keep = false)
+        }
+        if (Notify.history.isNotEmpty()) {
+            val g3 = group(content, "Недавние")
+            Notify.history.take(8).forEachIndexed { i, n ->
+                item(g3, "${n.app}: ${n.title}", Notify.ago(n.time), last = i == minOf(8, Notify.history.size) - 1)
+            }
+            val g4 = group(content)
+            item(g4, "Очистить", color = Ui.RED, last = true) { Notify.history.clear(); rebuild() }
         }
     }
 
@@ -661,10 +728,15 @@ class SettingsActivity : Activity() {
             .setPositiveButton("Да") { _, _ -> ok() }.setNegativeButton("Отмена", null).show()
     }
 
-    private fun input(title: String, initial: String, password: Boolean = false, done: (String) -> Unit) {
+    private fun input(title: String, initial: String, password: Boolean = false, digits: Boolean = false, done: (String) -> Unit) {
         val et = EditText(this).apply {
             setText(initial); setSelection(initial.length); isSingleLine = true
-            inputType = if (password) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_CLASS_TEXT
+            inputType = when {
+                digits -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+                password -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                else -> InputType.TYPE_CLASS_TEXT
+            }
+            if (digits) filters = arrayOf(android.text.InputFilter.LengthFilter(4))
         }
         val box = FrameLayout(this).apply { setPadding(dpi(20), dpi(8), dpi(20), 0); addView(et) }
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title).setView(box)

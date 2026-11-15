@@ -129,6 +129,35 @@ class ScreenshotTest {
         }
     }
 
+    @Test
+    fun lockAndNotifications() {
+        val act = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        idle(800)
+        Notify.post(act, "Новое сообщение", "Мама: Ты сегодня приедешь на ужин?", "test.app0", "YouTube",
+            IconFactory.get(act, act.model.apps["test.app0"]!!, act.dpi(42)))
+        idle(500)
+        act.window.decorView.captureRoboImage("build/shots/11_notification.png")
+        idle(6000)
+
+        // Пункт управления: режим перестановки и кнопка «+»
+        act.openControlCenter(); idle(800)
+        act.window.decorView.captureRoboImage("build/shots/12_cc_plus.png")
+        act.testControlCenter().startTileMove("input"); idle(400)
+        act.window.decorView.captureRoboImage("build/shots/13_cc_move.png")
+
+        // Экран блокировки
+        val lock = Robolectric.buildActivity(LockActivity::class.java).setup().get()
+        idle(800)
+        lock.window.decorView.captureRoboImage("build/shots/14_lock.png")
+        Lock.setPin("1234")
+        val lock2 = Robolectric.buildActivity(LockActivity::class.java).setup().get()
+        idle(300)
+        lock2.onKeyDown(KeyEvent.KEYCODE_1, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_1)); idle(300)
+        lock2.onKeyDown(KeyEvent.KEYCODE_2, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_2)); idle(500)
+        lock2.window.decorView.captureRoboImage("build/shots/15_lock_pin.png")
+        Lock.setPin(null)
+    }
+
     /** Обновления статуса не должны сдвигать фокус. */
     @Test
     fun updateFocusStable() {

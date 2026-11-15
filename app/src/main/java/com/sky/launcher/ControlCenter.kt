@@ -246,11 +246,19 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
     }
 
     /** Перестраивает плитки по списку из настроек. */
-    fun rebuildTiles() {
+    // ---------- Настраиваемые кнопки: «+», удержание OK, перестановка ----------
+
+    private var movingId: String? = null
+    private var moveBackup: List<String> = emptyList()
+    private val wiggles = ArrayList<android.animation.ValueAnimator>()
+
+    fun rebuildTiles(focusId: String? = null) {
+        wiggles.forEach { it.cancel() }; wiggles.clear()
         slotCol.removeAllViews(); rows.removeAllViews()
         val ids = Prefs.ccTiles.take(CcTiles.MAX)
-        ids.forEachIndexed { i, id ->
-            val t = makeTile(id) ?: return@forEachIndexed
+        val views = ids.mapNotNull { id -> makeTile(id)?.also { it.tag = id } }.toMutableList<View>()
+        if (ids.size < CcTiles.MAX && movingId == null) views += plusTile()
+        views.forEachIndexed { i, t ->
             if (i < 2) {
                 slotCol.addView(t, LinearLayout.LayoutParams(u, u).apply { if (i > 0) topMargin = g })
             } else {
@@ -260,23 +268,123 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
                 val row = rows.getChildAt(rows.childCount - 1) as LinearLayout
                 row.addView(t, LinearLayout.LayoutParams(u, u).apply { if (k % 4 > 0) marginStart = g })
             }
+            if (movingId != null) {
+                val moving = t.tag == movingId
+                if (moving) t.foreground = Ui.round(act, 24f, 0, Color.WHITE, 3f)
+                wiggles += android.animation.ObjectAnimator.ofFloat(t, View.ROTATION, if (moving) -3f else -1.5f, if (moving) 3f else 1.5f).apply {
+                    duration = (120 + Math.random() * 50).toLong()
+                    repeatMode = android.animation.ValueAnimator.REVERSE; repeatCount = android.animation.ValueAnimator.INFINITE
+                    start()
+                }
+            }
         }
+        val f = focusId ?: movingId
+        if (f != null && open) post { views.firstOrNull { it.tag == f }?.requestFocus() }
+    }
+
+    private fun plusTile() = CcTile(act, R.drawable.ic_add).apply {
+        tag = "+"
+        background = Ui.round(act, 24f, 0x14FFFFFF, 0x59FFFFFF, 1.5f)
+        onFocused = { caption.text = "Добавить кнопку" }
+        setOnClickListener { addPicker() }
     }
 
     private fun makeTile(id: String): CcTile? {
-        if (id.startsWith("app:")) {
+        val t = if (id.startsWith("app:")) {
             val pkg = id.removePrefix("app:")
             val a = act.model.apps[pkg] ?: return null
-            return CcTile(act, 0, IconFactory.get(act, a, act.dpi(44))).apply {
-                onFocused = { caption.text = "Открыть «${act.model.label(pkg)}»" }
-                setOnClickListener { hide(); act.launchPkg(pkg) }
+            CcTile(act, 0, IconFactory.get(act, a, act.dpi(44))).apply {
+                onFocused = { caption.text = if (movingId != null) moveHint() else "Открыть «${act.model.label(pkg)}» · удерживайте OK — изменить" }
+                setOnClickListener { if (movingId == null) { hide(); act.launchPkg(pkg) } }
+            }
+        } else {
+            val d = CcTiles.get(id) ?: return null
+            CcTile(act, d.icon).apply {
+                onFocused = { caption.text = if (movingId != null) moveHint() else (if (id == "timer") act.timerCaption() else d.name) }
+                setOnClickListener { if (movingId == null) runTile(id) }
             }
         }
-        val d = CcTiles.get(id) ?: return null
-        return CcTile(act, d.icon).apply {
-            onFocused = { caption.text = if (id == "timer") act.timerCaption() else d.name }
-            setOnClickListener { runTile(id) }
+        t.setOnLongClickListener { if (movingId == null) tileMenu(id); true }
+        return t
+    }
+
+    private fun tileName(id: String) =
+        if (id.startsWith("app:")) act.model.label(id.removePrefix("app:")) else CcTiles.get(id)?.name ?: id
+
+    private fun moveHint() = "◀ ▶  переставить     OK — готово     Назад — отмена"
+
+    private fun tileMenu(id: String) {
+        val items = arrayListOf(
+            SheetItem("Переставить", R.drawable.ic_move) { startTileMove(id) },
+            SheetItem("Убрать из Пункта управления", R.drawable.ic_trash, destructive = true) {
+                Prefs.ccTiles = Prefs.ccTiles - id; rebuildTiles("+")
+            },
+        )
+        if (Prefs.ccTiles.size < CcTiles.MAX) items += SheetItem("Добавить кнопку", R.drawable.ic_add) { addPicker() }
+        act.sheet.showList(tileName(id), items)
+    }
+
+    private fun addPicker() {
+        val have = Prefs.ccTiles
+        val items = ArrayList<SheetItem>()
+        CcTiles.all.filter { it.id !in have }.forEach { d -> items += SheetItem(d.name, d.icon) { addTile(d.id) } }
+        items += SheetItem("Кнопка приложения…", R.drawable.ic_apps) {
+            val apps = act.model.apps.values.filter { it.special == null && "app:${it.pkg}" !in have }
+                .sortedBy { act.model.label(it.pkg).lowercase() }
+            act.sheet.showList("Кнопка приложения", apps.map { a -> SheetItem(act.model.label(a.pkg), R.drawable.ic_apps) { addTile("app:${a.pkg}") } })
         }
+        act.sheet.showList("Добавить кнопку", items)
+    }
+
+    private fun addTile(id: String) {
+        val l = Prefs.ccTiles.toMutableList()
+        if (id in l) return
+        if (l.size >= CcTiles.MAX) { act.toast("Не больше ${CcTiles.MAX} кнопок"); return }
+        l += id; Prefs.ccTiles = l
+        rebuildTiles(id)
+    }
+
+    fun startTileMove(id: String) {
+        movingId = id
+        moveBackup = Prefs.ccTiles
+        caption.text = moveHint()
+        rebuildTiles(id)
+    }
+
+    private fun stepTile(d: Int) {
+        val id = movingId ?: return
+        val l = Prefs.ccTiles.toMutableList()
+        val i = l.indexOf(id); val j = i + d
+        if (i < 0 || j < 0 || j >= l.size) return
+        l.removeAt(i); l.add(j, id)
+        Prefs.ccTiles = l
+        rebuildTiles(id)
+    }
+
+    private fun endTileMove(save: Boolean) {
+        val id = movingId ?: return
+        if (!save) Prefs.ccTiles = moveBackup
+        movingId = null
+        rebuildTiles(id)
+        caption.text = if (save) "Готово" else "Отменено"
+    }
+
+    override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        if (movingId != null && !act.sheet.open) {
+            val handled = e.keyCode in listOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP,
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK)
+            if (handled) {
+                val ok = e.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || e.keyCode == KeyEvent.KEYCODE_ENTER
+                if (e.action == KeyEvent.ACTION_DOWN && !(ok && e.repeatCount > 0)) when (e.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_UP -> stepTile(-1)
+                    KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_DOWN -> stepTile(1)
+                    KeyEvent.KEYCODE_BACK -> endTileMove(false)
+                    else -> endTileMove(true)
+                }
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(e)
     }
 
     private fun runTile(id: String) {
@@ -329,6 +437,7 @@ class ControlCenter(private val act: MainActivity) : FrameLayout(act) {
 
     fun hide() {
         if (!open) return
+        if (movingId != null) { movingId = null; rebuildTiles() }
         closing = true
         act.overlayClosing(this, false)
         panel.animate().alpha(0f).scaleX(0.96f).scaleY(0.96f).translationY(-act.dp(10f)).setDuration(150).withLayer().start()
@@ -343,7 +452,7 @@ class TileDef(val id: String, val name: String, val icon: Int)
 
 /** Все плитки, которые можно добавить в Пункт управления. */
 object CcTiles {
-    const val MAX = 10
+    const val MAX = 9
     val all = listOf(
         TileDef("wallpaper", "Обои", R.drawable.ic_image),
         TileDef("sky_settings", "Настройки Sky OS", R.drawable.ic_gear),

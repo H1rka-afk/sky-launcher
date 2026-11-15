@@ -34,4 +34,27 @@ object Prefs {
     var ccTiles: List<String>
         get() = p.getString("cc_tiles", null)?.split(",")?.filter { it.isNotBlank() } ?: DEFAULT_TILES
         set(v) = p.edit().putString("cc_tiles", v.joinToString(",")).apply()
+
+    // ---- Экран блокировки ----
+    var pinHash: String?
+        get() = p.getString("pin_hash", null)
+        set(v) = p.edit().putString("pin_hash", v).apply()
+
+    var lockOnWake: Boolean
+        get() = p.getBoolean("lock_on_wake", true)
+        set(v) = p.edit().putBoolean("lock_on_wake", v).apply()
+
+    /** Автоблокировка на главном экране, минут (0 — никогда). */
+    var lockIdleMin: Int
+        get() = p.getInt("lock_idle_min", 15)
+        set(v) = p.edit().putInt("lock_idle_min", v).apply()
+
+    var pinReminder: Boolean
+        get() = p.getBoolean("pin_reminder", true)
+        set(v) = p.edit().putBoolean("pin_reminder", v).apply()
+
+    // ---- Уведомления ----
+    var appNotifications: Boolean
+        get() = p.getBoolean("app_notifications", true)
+        set(v) = p.edit().putBoolean("app_notifications", v).apply()
 }

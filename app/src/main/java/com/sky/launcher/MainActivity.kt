@@ -125,8 +125,14 @@ class MainActivity : Activity() {
         sheet = Sheet(this); root.addView(sheet, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
 
-        if (!splashShown && SystemClock.elapsedRealtime() < 15 * 60_000L) showSplash()
+        val boot = !splashShown && SystemClock.elapsedRealtime() < 15 * 60_000L
+        if (boot) showSplash()
         splashShown = true
+        // после включения ТВ — экран блокировки (после заставки)
+        if (boot && Prefs.lockOnWake) handler.postDelayed({ Lock.lockNow(this) }, 2300)
+
+        // Включение экрана — блокировка (если служба Sky OS выключена, ловим здесь)
+        registerReceiver(screenReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_ON))
 
         // Установка/удаление приложений — обновляем список
         registerReceiver(pkgReceiver, android.content.IntentFilter().apply {
@@ -143,7 +149,29 @@ class MainActivity : Activity() {
         }
     }
 
+    private val screenReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: Intent) {
+            if (HomeInterceptService.instance == null && Prefs.lockOnWake) Lock.lockNow(this@MainActivity)
+        }
+    }
+
+    // ---------- Автоблокировка при бездействии на главном экране ----------
+    private var lastInput = SystemClock.uptimeMillis()
+    override fun onUserInteraction() { super.onUserInteraction(); lastInput = SystemClock.uptimeMillis() }
+    private val idleCheck = object : Runnable {
+        override fun run() {
+            val min = Prefs.lockIdleMin
+            if (min > 0 && !cc.open && !sheet.open && moving == null &&
+                SystemClock.uptimeMillis() - lastInput > min * 60_000L) {
+                lastInput = SystemClock.uptimeMillis()
+                Lock.lockNow(this@MainActivity)
+            }
+            handler.postDelayed(this, 30_000)
+        }
+    }
+
     override fun onDestroy() {
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) {}
         try { unregisterReceiver(pkgReceiver) } catch (e: Exception) {}
         super.onDestroy()
     }
@@ -175,12 +203,18 @@ class MainActivity : Activity() {
         Updater.autoCheck(this)
         updateBadges()
         Kiosk.enterIfOwner(this)
+        Notify.activityHost = root
+        if (Lock.locked && !LockActivity.visible) Lock.lockNow(this)
+        lastInput = SystemClock.uptimeMillis()
+        handler.removeCallbacks(idleCheck); handler.postDelayed(idleCheck, 30_000)
     }
 
     override fun onPause() {
         super.onPause()
         wallpaper.stop()
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(idleCheck)
+        if (Notify.activityHost === root) Notify.activityHost = null
     }
 
     override fun onRestart() {
@@ -610,10 +644,8 @@ class MainActivity : Activity() {
         val a = Updater.available
         if (a != null && a.code != bannerShownFor && !cc.open && !sheet.open && moving == null) {
             bannerShownFor = a.code
-            hint.text = "Доступно обновление Sky OS ${a.name} — Настройки → Обновление ПО"
-            hint.visibility = View.VISIBLE; hint.alpha = 0f
-            hint.animate().alpha(1f).setDuration(250).start()
-            handler.postDelayed({ if (moving == null) hint.animate().alpha(0f).setDuration(300).withEndAction { hint.visibility = View.GONE }.start() }, 9000)
+            Notify.post(this, "Доступно обновление Sky OS ${a.name}",
+                (a.notes.takeIf { it.isNotBlank() }?.let { "$it\n" } ?: "") + "Настройки → Обновление ПО")
         }
     }
 
@@ -788,6 +820,7 @@ class MainActivity : Activity() {
     fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
     /** Для скриншот‑теста. */
+    fun testControlCenter() = cc
     fun testGoToPage(p: Int) = showPage(p, 1, 0, true)
     fun testMove(dx: Int, dy: Int) = moveBy(dx, dy)
     fun testFirstWidget(): HomeItem? = model.items.firstOrNull { !it.isApp }
