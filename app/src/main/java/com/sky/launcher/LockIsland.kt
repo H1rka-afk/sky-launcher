@@ -19,11 +19,12 @@ class LockIsland(ctx: Context) : View(ctx) {
 
     private val d = ctx.resources.displayMetrics.density
     private val capsule = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
-    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE8E8ED.toInt() }
     private val shackle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 1.9f * d; strokeCap = Paint.Cap.ROUND
+        color = 0xFFE8E8ED.toInt(); style = Paint.Style.STROKE; strokeWidth = 2.3f * d; strokeCap = Paint.Cap.BUTT
     }
     private val rect = RectF()
+    private val arc = RectF()
     private val path = Path()
 
     /** Полный размер капсулы. */
@@ -42,29 +43,34 @@ class LockIsland(ctx: Context) : View(ctx) {
         val top = 0f
         rect.set(cx - capW / 2, top, cx + capW / 2, top + capH)
         c.drawRoundRect(rect, capH / 2, capH / 2, capsule)
-        if (lockAlpha <= 0f || capW < 40 * d) return
-        // замок — у левого края капсулы
+        if (lockAlpha <= 0f || capW < 44 * d) return
+        // замок как в iOS: широкий скруглённый корпус и толстая дужка
         val a = (255 * lockAlpha).toInt()
         body.alpha = a; shackle.alpha = a
-        val lx = cx - capW / 2 + 17f * d
+        val lx = cx - capW / 2 + 19f * d
         val midY = top + capH / 2
-        val bw = 11f * d; val bh = 8.5f * d
-        val bTop = midY - bh / 2 + 2.6f * d
+        val bw = 13f * d; val bh = 10.5f * d
+        val bTop = midY - bh / 2 + 3f * d
         rect.set(lx - bw / 2, bTop, lx + bw / 2, bTop + bh)
-        c.drawRoundRect(rect, 2f * d, 2f * d, body)
-        // дужка: поднимается и поворачивается вокруг правой ножки — левая выходит из корпуса
-        val sw = 7f * d
-        val lift = 3.2f * d * open
+        c.drawRoundRect(rect, 2.6f * d, 2.6f * d, body)
+        // дужка: сначала приподнимается, потом поворачивается вокруг правой ножки —
+        // левая часть уходит вправо (как поворот в 3D)
+        val sw = 8.4f * d
+        val rightX = lx + sw / 2
+        val lift = 2.6f * d * minOf(1f, open / 0.35f)
+        val t = ((open - 0.15f) / 0.85f).coerceIn(0f, 1.15f)
+        val turn = kotlin.math.cos(Math.PI * t).toFloat()
         c.save()
-        c.rotate(-24f * open, lx + sw / 2, bTop - 2f * d)
         c.translate(0f, -lift)
+        c.scale(turn, 1f, rightX, 0f)
         path.reset()
-        val legBottom = bTop + 0.5f * d
-        val arcTop = bTop - 7.6f * d
+        val legBottom = bTop + 0.8f * d
+        val arcTop = bTop - 8.2f * d
         path.moveTo(lx - sw / 2, legBottom)
         path.lineTo(lx - sw / 2, arcTop + sw / 2)
-        path.arcTo(RectF(lx - sw / 2, arcTop, lx + sw / 2, arcTop + sw), 180f, 180f)
-        path.lineTo(lx + sw / 2, legBottom + lift)
+        arc.set(lx - sw / 2, arcTop, lx + sw / 2, arcTop + sw)
+        path.arcTo(arc, 180f, 180f)
+        path.lineTo(rightX, legBottom + lift)
         c.drawPath(path, shackle)
         c.restore()
     }
@@ -84,10 +90,10 @@ class LockIsland(ctx: Context) : View(ctx) {
     fun unlock(done: () -> Unit) {
         anim?.cancel()
         val spring = android.animation.TimeInterpolator { t ->
-            (1f - kotlin.math.exp(-6f * t) * kotlin.math.cos(10f * t)).toFloat()
+            (1f - kotlin.math.exp(-5f * t) * kotlin.math.cos(7.5f * t)).toFloat()
         }
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 420; interpolator = spring
+            duration = 620; interpolator = spring
             addUpdateListener { open = it.animatedValue as Float; invalidate() }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(a: android.animation.Animator) {

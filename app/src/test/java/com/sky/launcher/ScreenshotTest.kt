@@ -211,7 +211,9 @@ class ScreenshotTest {
         lock.window.decorView.captureRoboImage("build/shots/14_lock.png")
         // разблокировка без кода: замок в островке открывается
         lock.onKeyDown(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER))
-        idle(560)
+        idle(180)
+        lock.window.decorView.captureRoboImage("build/shots/14b_unlock_mid.png")
+        idle(500)
         lock.window.decorView.captureRoboImage("build/shots/14b_unlock_open.png")
         idle(1200)
         Lock.setPin("1234")
