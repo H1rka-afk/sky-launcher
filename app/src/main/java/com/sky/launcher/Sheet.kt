@@ -81,7 +81,7 @@ class Sheet(private val act: MainActivity) : FrameLayout(act) {
         orientation = LinearLayout.VERTICAL
         clipChildren = false; clipToPadding = false
         background = Ui.round(act, 30f, 0xEB1C1C1E.toInt(), 0x24FFFFFF)
-        elevation = act.dp(24f)
+        elevation = 0f
         setPadding(act.dpi(padH), act.dpi(padV), act.dpi(padH), act.dpi(padV))
     }
 

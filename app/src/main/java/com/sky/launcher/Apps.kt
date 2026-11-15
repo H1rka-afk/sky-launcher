@@ -94,7 +94,7 @@ class AppTileView(ctx: Context, private val iconDp: Int = 72, showLabel: Boolean
         isFocusable = true; isClickable = true; isLongClickable = true
         clipChildren = false; clipToPadding = false
         val s = ctx.dpi(iconDp)
-        icon.elevation = ctx.dp(3f)
+        icon.elevation = 0f   // тени дорого обходятся видеочипу ТВ
         icon.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(v: View, o: Outline) {
                 o.setRoundRect(0, 0, v.width, v.height, v.width * 0.27f)

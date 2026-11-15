@@ -109,12 +109,15 @@ class MainActivity : Activity() {
         dockWrap.addView(dock, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER_HORIZONTAL))
         home.addView(dockWrap, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dpi(4) })
         root.addView(home, FrameLayout.LayoutParams(MATCH, MATCH))
+        // Главный экран хранится как готовая картинка в видеопамяти: когда двигаются обои,
+        // телевизору не нужно каждый кадр заново рисовать все иконки и виджеты.
+        home.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
         hint = Ui.text(this, 15f, Color.WHITE, Ui.medium, false).apply {
             background = Ui.round(context, 20f, 0xCC1C1C1E.toInt(), 0x33FFFFFF)
             setPadding(dpi(20), dpi(10), dpi(20), dpi(10))
             visibility = View.GONE
-            elevation = dp(30f)
+            elevation = 0f
         }
         root.addView(hint, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dpi(12) })
 
@@ -703,6 +706,7 @@ class MainActivity : Activity() {
      * Плавное затемнение всего экрана слишком тяжело для процессора телевизора.
      */
     private fun dimHome(dim: Boolean) {
+        if (dim) wallpaper.pauseMotion() else wallpaper.resumeMotion()
         home.animate().cancel()
         home.alpha = 1f; home.scaleX = 1f; home.scaleY = 1f
         home.visibility = if (dim) View.INVISIBLE else View.VISIBLE

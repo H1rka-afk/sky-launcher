@@ -57,7 +57,7 @@ object Ui {
         v.setOnFocusChangeListener { view, f ->
             view.animate()
                 .scaleX(if (f) scale else 1f).scaleY(if (f) scale else 1f)
-                .translationZ(if (f) view.context.dp(8f) else 0f)
+                
                 .setDuration(180).setInterpolator(DecelerateInterpolator()).start()
             extra?.invoke(f)
         }

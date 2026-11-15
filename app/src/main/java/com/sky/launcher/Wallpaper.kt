@@ -103,9 +103,14 @@ class WallpaperView(ctx: Context, private val animated: Boolean = true) : View(c
     private var running = false
     private var kenBurns: android.animation.ValueAnimator? = null
 
-    private val live get() = animated && running && Prefs.motion
+    private val live get() = animated && running && Prefs.motion && !paused
 
     fun start() { running = true; invalidate(); restartMotion() }
+
+    /** Пауза движения, пока открыта папка/меню — видеочип занят только ими. */
+    private var paused = false
+    fun pauseMotion() { paused = true; kenBurns?.pause() }
+    fun resumeMotion() { if (!paused) return; paused = false; kenBurns?.resume(); invalidate() }
     fun stop() { running = false; kenBurns?.cancel(); kenBurns = null }
 
     /** Медленное «дыхание» фото — только трансформации, без перерисовки. */
