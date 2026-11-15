@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -77,6 +78,21 @@ class HomeInterceptService : AccessibilityService() {
                 Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             )
         )
+    }
+
+    /**
+     * Кнопка «Домой» перехватывается до того, как система откроет стандартный экран Google TV —
+     * Sky OS открывается сразу, без мелькания. Если прошивка не отдаёт кнопку службе,
+     * работает прежний способ (по появлению стандартного экрана).
+     */
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_HOME || !Prefs.fastHome) return false
+        if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+            try {
+                if (Lock.locked) Lock.lockNow(this) else openLauncher()
+            } catch (e: Exception) { return false }
+        }
+        return true
     }
 
     override fun onInterrupt() {}

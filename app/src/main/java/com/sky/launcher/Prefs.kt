@@ -66,6 +66,11 @@ object Prefs {
         set(v) = p.edit().putBoolean("pin_reminder", v).apply()
 
     // ---- Уведомления ----
+    /** Кнопка «Домой» сразу открывает Sky OS (без мелькания стандартного экрана). */
+    var fastHome: Boolean
+        get() = p.getBoolean("fast_home", true)
+        set(v) = p.edit().putBoolean("fast_home", v).apply()
+
     var island: Boolean
         get() = p.getBoolean("island", true)
         set(v) = p.edit().putBoolean("island", v).apply()
