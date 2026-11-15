@@ -238,7 +238,7 @@ class LiveScenes(ctx: Context, val kind: Int, val w: Int, val h: Int, private va
     }
 
     // ---------------- Волны ----------------
-    private val waveCols = intArrayOf(0x66A78BFA, 0x7760A5FA, 0x8838BDF8, 0x99312E81.toInt(), 0xCC1E1B4B.toInt())
+    private val waveCols = intArrayOf(0x66A78BFA, 0x7760A5FA, 0x8838BDF8.toInt(), 0x99312E81.toInt(), 0xCC1E1B4B.toInt())
 
     private fun waves(c: Canvas, t: Float) {
         c.drawRect(0f, 0f, fw, fh, bg)
