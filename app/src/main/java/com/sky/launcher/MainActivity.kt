@@ -459,6 +459,7 @@ class MainActivity : Activity() {
             for (o in over) model.place(o, m.page)
         }
         finishMove()
+        if (openFolder != null) model.fillGaps()     // как в iOS: иконки сдвигаются, пустых мест нет
         model.compact(); model.save()
         currentPage = (openFolder ?: m).page
         val id = (openFolder ?: m).id

@@ -231,20 +231,20 @@ class WeatherWidget(act: MainActivity, item: HomeItem) : WidgetView(act, item) {
         cond.maxLines = 1; cond.ellipsize = TextUtils.TruncateAt.END
         hoursRow.orientation = LinearLayout.HORIZONTAL
         val cityRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        cityRow.addView(city, LinearLayout.LayoutParams(WRAP, WRAP))
+        cityRow.addView(city, if (compact) LinearLayout.LayoutParams(0, WRAP, 1f) else LinearLayout.LayoutParams(WRAP, WRAP))
         cityRow.addView(ImageView(act).apply { setImageResource(R.drawable.ic_location); alpha = 0.9f },
             LinearLayout.LayoutParams(act.dpi(12), act.dpi(12)).apply { marginStart = act.dpi(5) })
         when {
             compact -> {
                 val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(act.dpi(18), act.dpi(10), act.dpi(14), act.dpi(10)) }
                 val left = col(Gravity.CENTER_VERTICAL)
-                left.addView(cityRow); left.addView(temp, lp(top = 1))
+                left.addView(cityRow, lp(MATCH)); left.addView(temp, lp(top = 1))
                 val condRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 condRow.addView(icon, LinearLayout.LayoutParams(act.dpi(16), act.dpi(16)).apply { marginEnd = act.dpi(5) })
                 condRow.addView(cond)
                 left.addView(condRow, lp(top = 1))
-                row.addView(left, LinearLayout.LayoutParams(0, MATCH, 1f))
-                row.addView(hoursRow, LinearLayout.LayoutParams(act.dpi(168), MATCH))
+                row.addView(left, LinearLayout.LayoutParams(0, MATCH, 1f).apply { marginEnd = act.dpi(8) })
+                row.addView(hoursRow, LinearLayout.LayoutParams(act.dpi(148), MATCH))
                 addView(row, LayoutParams(MATCH, MATCH))
             }
             large -> {
